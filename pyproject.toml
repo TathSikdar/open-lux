@@ -44,7 +44,10 @@ openlux = "openlux.__main__:main"
 packages = ["openlux"]
 
 [tool.hatch.build.targets.sdist]
-include = ["openlux", "tests", "firmware", "docs", "README.md", "LICENSE"]
+include = [
+    "openlux", "tests", "firmware", "packaging", "docs",
+    "README.md", "CONTRIBUTING.md", "LICENSE",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

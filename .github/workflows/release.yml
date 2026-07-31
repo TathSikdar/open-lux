@@ -1,0 +1,78 @@
+name: Release
+
+# Push a tag to cut a release:  git tag v1.0.0 && git push origin v1.0.0
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch: # or build the artifacts by hand, without tagging
+
+permissions:
+  contents: write # needed to create the GitHub Release
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -e . pyinstaller
+      - run: pyinstaller --noconfirm --clean packaging/openlux.spec
+
+      - name: Build installer
+        run: |
+          choco install innosetup --no-progress -y
+          iscc packaging/openlux.iss
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/*-setup.exe
+
+  linux:
+    runs-on: ubuntu-22.04 # oldest supported glibc wins the most machines
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Qt runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libxkbcommon-x11-0 libdbus-1-3 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 \
+            libxcb-shape0 libxcb-xinerama0
+
+      - run: pip install -e . pyinstaller
+      - run: pyinstaller --noconfirm --clean packaging/openlux.spec
+
+      - name: Assemble the tarball
+        run: |
+          cp packaging/install-linux.sh packaging/openlux.desktop dist/openlux/
+          chmod +x dist/openlux/install-linux.sh
+          tar -C dist -czf "open-lux-linux-x86_64.tar.gz" openlux
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-tarball
+          path: open-lux-linux-x86_64.tar.gz
+
+  release:
+    needs: [windows, linux]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            *-setup.exe
+            *.tar.gz
+          generate_release_notes: true
