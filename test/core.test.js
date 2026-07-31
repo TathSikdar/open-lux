@@ -14,6 +14,7 @@ import {
   CONTRAST_STEP,
   Calibration,
   Curve,
+  LUX_MAX,
   N_BRIGHT,
   N_CONTRAST,
   adcToLux,
@@ -144,7 +145,10 @@ test('luxAt round-trips through solve', () => {
 
 test('learn converges without dragging distant knots', () => {
   const c = new Curve();
-  const ambient = 100.0;
+  // On a knot rather than a round number: past the top of the range the
+  // Gaussian only reaches the last knot's shoulder, and convergence is a test
+  // of the learning rule, not of how far off the end of the axis we asked.
+  const ambient = LUX_MAX;
   const before = [...c.ys];
   const desired = new Curve(before).valueAt(ambient) * 2;
 

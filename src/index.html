@@ -12,7 +12,7 @@
       content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:"
     />
     <title>open-lux</title>
-    <!-- The same star as the window, tray and installer icons; those are
+    <!-- The same lamp as the window, tray and installer icons; those are
          rasterised from this file by tools/icon.cjs. -->
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
@@ -166,35 +166,13 @@
         <header><h2>Settings</h2></header>
 
         <div class="card">
-          <p class="group">
-            Calibrate &ndash; measure what a display actually emits, so ambient
-            light can be matched to it
+          <p class="group">Displays</p>
+          <p class="sub">
+            Each monitor is listed under the name it reports for itself. Type
+            over it to call it something you recognise; empty puts it back.
           </p>
-          <div class="row">
-            <label for="cal-display">Display</label>
-            <select id="cal-display"></select>
-            <label for="cal-contrast">Contrast</label>
-            <input type="number" id="cal-contrast" min="0" max="100" step="1" />
-            <button id="cal-identify" type="button">Identify display</button>
-          </div>
-          <ol class="sub steps">
-            <li>
-              Drag this window onto the display you want to calibrate. Not sure
-              which one it is? Press <b>Identify</b> and it will blink.
-            </li>
-            <li>Hold the LDR flat against the white square below, covering it.</li>
-            <li>
-              Press Ready. The display sweeps its whole range &ndash; leave it
-              alone and keep the room's lighting steady until it finishes
-              (~1&nbsp;min).
-            </li>
-          </ol>
-          <div id="cal-square" aria-hidden="true"></div>
-          <div class="row">
-            <button id="cal-button" class="primary">Ready to calibrate</button>
-          </div>
-          <progress id="cal-bar" max="100" value="0" hidden></progress>
-          <p id="cal-progress" class="sub"></p>
+          <!-- settings.js fills this; see buildNames(). -->
+          <div id="set-displays"></div>
         </div>
 
         <div class="card">
@@ -308,6 +286,40 @@
             <input type="checkbox" id="set-minimized" />
             <span>Start minimised to the tray</span>
           </label>
+        </div>
+
+        <!-- Last on the page: it is used once per monitor and then never again,
+             so it was pushing everything reached daily below the fold. -->
+        <div class="card">
+          <p class="group">
+            Calibrate &ndash; measure what a display actually emits, so ambient
+            light can be matched to it
+          </p>
+          <div class="row">
+            <label for="cal-display">Display</label>
+            <select id="cal-display"></select>
+            <label for="cal-contrast">Contrast</label>
+            <input type="number" id="cal-contrast" min="0" max="100" step="1" />
+            <button id="cal-identify" type="button">Identify display</button>
+          </div>
+          <ol class="sub steps">
+            <li>
+              Drag this window onto the display you want to calibrate. Not sure
+              which one it is? Press <b>Identify</b> and it will blink.
+            </li>
+            <li>Hold the LDR flat against the white square below, covering it.</li>
+            <li>
+              Press Ready. The display sweeps its whole range &ndash; leave it
+              alone and keep the room's lighting steady until it finishes
+              (~1&nbsp;min).
+            </li>
+          </ol>
+          <div id="cal-square" aria-hidden="true"></div>
+          <div class="row">
+            <button id="cal-button" class="primary">Ready to calibrate</button>
+          </div>
+          <progress id="cal-bar" max="100" value="0" hidden></progress>
+          <p id="cal-progress" class="sub"></p>
         </div>
       </section>
     </main>
@@ -475,10 +487,10 @@
                 whenever a room looks wrong &ndash; open-lux learns from it.
               </li>
               <li>
-                <b>Settings</b> starts with Calibrate, for any monitor you
-                skipped or one you have moved. Below it are the response curve,
-                the theme, and the sensor's constants if you built yours with
-                different parts.
+                <b>Settings</b> holds the response curve, the theme, and the
+                sensor's constants if you built yours with different parts.
+                Calibrate is at the bottom, for any monitor you skipped or one
+                you have moved.
               </li>
             </ul>
           </div>

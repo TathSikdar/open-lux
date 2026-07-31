@@ -35,6 +35,7 @@ export class Controller {
     this.calibrating = false;
     this.autoEnabled = true;
     this.lastLevels = {}; // key -> brightness %
+    this.lastContrast = {}; // key -> contrast %; below calContrast means ExtraDim is doing the work
     this.override = new Map(); // key -> { pct, atLux }
   }
 
@@ -54,28 +55,43 @@ export class Controller {
   applyNow() {
     if (this.ambientLux === null || this.calibrating || !this.autoEnabled) return null;
     const levels = {};
+    const contrasts = {};
     for (const d of this.displays) {
       const cal = calibrationOf(this.cfg, d.key);
       if (!cal) continue; // never touch a display we have not measured
 
-      const held = this.overridePct(d.key);
+      const held = this.overrideFor(d.key);
       let pct, contrast;
       if (held === null) {
         const target = targetFor(this.cfg, this.curve, this.ambientLux, d.key);
         [pct, contrast] = cal.solve(target, this.cfg.extradim, this.cfg.minContrast);
       } else {
-        pct = held;
-        [, contrast] = cal.solve(cal.luxAt(pct), this.cfg.extradim, this.cfg.minContrast);
+        pct = held.pct;
+        // A contrast set by hand is the whole point of the ExtraDim slider, so
+        // it stands; one is only derived when the user did not pick it.
+        contrast =
+          held.contrast ??
+          cal.solve(cal.luxAt(pct), this.cfg.extradim, this.cfg.minContrast)[1];
       }
       levels[d.key] = pct;
+      contrasts[d.key] = contrast;
       this.submit(d.index, pct, contrast);
     }
     this.lastLevels = levels;
+    this.lastContrast = contrasts;
     return levels;
   }
 
-  /** A manual nudge holds until the room's light actually changes. */
+  /** @return {?number} */
   overridePct(key) {
+    return this.overrideFor(key)?.pct ?? null;
+  }
+
+  /**
+   * A manual nudge holds until the room's light actually changes.
+   * @return {?{pct: number, atLux: number, contrast: ?number}}
+   */
+  overrideFor(key) {
     const entry = this.override.get(key) ?? this.override.get('all');
     if (!entry) return null;
     const moved = Math.abs(
@@ -85,28 +101,38 @@ export class Controller {
       this.override.clear();
       return null;
     }
-    return entry.pct;
+    return entry;
   }
 
   // --- manual + learning ---------------------------------------------------
 
-  manualPreview(key, pct) {
+  /**
+   * @param {string} key
+   * @param {number} pct brightness
+   * @param {?number=} contrast set by hand, or null to derive one from `pct`
+   */
+  manualPreview(key, pct, contrast = null) {
     for (const d of this.targets(key)) {
       const cal = calibrationOf(this.cfg, d.key);
       if (!cal) continue;
-      const [, contrast] = cal.solve(cal.luxAt(pct), this.cfg.extradim, this.cfg.minContrast);
-      this.submit(d.index, pct, contrast);
+      const c =
+        contrast ?? cal.solve(cal.luxAt(pct), this.cfg.extradim, this.cfg.minContrast)[1];
+      this.submit(d.index, pct, c);
     }
   }
 
-  manualCommit(key, pct) {
+  /** @param {?number=} contrast see manualPreview. */
+  manualCommit(key, pct, contrast = null) {
     if (this.ambientLux === null) return;
-    this.override.set(key, { pct, atLux: this.ambientLux });
+    this.override.set(key, { pct, atLux: this.ambientLux, contrast });
 
+    // luxAt already reads the contrast table when brightness is 0, so a nudge
+    // made on the contrast slider teaches the curve exactly as one made on the
+    // brightness slider does.
     const wanted = new Map();
     for (const d of this.targets(key)) {
       const cal = calibrationOf(this.cfg, d.key);
-      if (cal) wanted.set(d.key, cal.luxAt(pct));
+      if (cal) wanted.set(d.key, cal.luxAt(pct, contrast));
     }
     if (!wanted.size || !this.cfg.autoLearn) return;
 

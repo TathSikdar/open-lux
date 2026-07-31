@@ -20,7 +20,10 @@ export const N_CONTRAST = 100 / CONTRAST_STEP + 1; // 21 samples
 export const N_BRIGHT = 101; // one per brightness %
 
 export const LUX_MIN = 0.1;
-export const LUX_MAX = 10000.0; // curve x-axis, in decades
+// An LDR sitting beside a monitor reads well under this even in a bright room,
+// and everything above it was dead width on the graph. The curve clamps to its
+// top knot past this, which is what a fully-lit room wants anyway.
+export const LUX_MAX = 20.0; // curve x-axis
 export const N_POINTS = 12; // curve control points
 
 // --- interpolation helpers --------------------------------------------------
@@ -124,9 +127,47 @@ export function formatLux(lux) {
 
 // --- response curve ---------------------------------------------------------
 
-/** Log-linear ramp from `lo` to `hi` target lux across the ambient range. */
+/** Ambient level the starting curve is at full brightness by. Anything above
+ *  is a lit room, and the curve is flat from here to LUX_MAX. */
+const FULL_FROM = 10.0;
+
+/** The knots' positions in log10(lux), spaced evenly across the axis. */
+function knotXs() {
+  const x0 = Math.log10(LUX_MIN);
+  const x1 = Math.log10(LUX_MAX);
+  return Array.from({ length: N_POINTS }, (_, i) => x0 + ((x1 - x0) * i) / (N_POINTS - 1));
+}
+
+/**
+ * The starting curve: a logarithm of ambient lux, `lo` in the dark and `hi` by
+ * FULL_FROM.
+ *
+ * Logarithmic because the first lux of ambient light matters far more to the
+ * eye than the tenth, and flat above FULL_FROM because a lit room wants the
+ * panel at its brightest whatever the sensor happens to read.
+ */
 export function defaultYs(lo = 5.0, hi = 250.0) {
-  return Array.from({ length: N_POINTS }, (_, i) => lo * (hi / lo) ** (i / (N_POINTS - 1)));
+  return knotXs().map((x) => {
+    // Across the axis rather than from zero lux, so the darkest knot sits on
+    // `lo` exactly -- that is the one the ExtraDim end hangs off.
+    const t = (Math.min(10 ** x, FULL_FROM) - LUX_MIN) / (FULL_FROM - LUX_MIN);
+    return lo + (hi - lo) * Math.log10(1 + 9 * t);
+  });
+}
+
+/**
+ * The same curve drawn for the panels that have actually been measured: from
+ * the dimmest every display can manage on brightness alone to the brightest
+ * they all reach, so no part of it asks for light some display cannot give.
+ */
+export function defaultYsFor(cfg) {
+  const cals = Object.keys(cfg.calibrations ?? {})
+    .map((key) => calibrationOf(cfg, key))
+    .filter(Boolean);
+  if (!cals.length) return defaultYs();
+  const lo = Math.max(...cals.map((c) => c.minLux));
+  const hi = Math.min(...cals.map((c) => c.maxLux));
+  return hi > lo ? defaultYs(lo, hi) : defaultYs();
 }
 
 /**
@@ -135,9 +176,7 @@ export function defaultYs(lo = 5.0, hi = 250.0) {
  */
 export class Curve {
   constructor(ys = null) {
-    const x0 = Math.log10(LUX_MIN);
-    const x1 = Math.log10(LUX_MAX);
-    this.xs = Array.from({ length: N_POINTS }, (_, i) => x0 + ((x1 - x0) * i) / (N_POINTS - 1));
+    this.xs = knotXs();
     this.ys = ys ? [...ys] : defaultYs();
   }
 
@@ -269,6 +308,7 @@ export const DEFAULTS = {
   curveYs: defaultYs(),
   calibrations: {}, // display key -> plain object
   gains: {}, // display key -> learned scalar
+  names: {}, // display key -> the user's own name for it
 
   // LDR constants (see adcToLux)
   rFixed: 5100.0,

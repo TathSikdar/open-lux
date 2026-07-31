@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { N_CONTRAST, calibrationOf, withDefaults } from '../src/core.js';
-import { CalibrationRun, identifyDisplay, retry } from '../src/hardware.js';
+import { CalibrationRun, identifyDisplay, nameMonitors, retry } from '../src/hardware.js';
 import { Controller } from '../src/controller.js';
 
 const ROOM = 40.0; // ambient light reaching the sensor around the LDR
@@ -235,6 +235,44 @@ test('per-display learning uses a gain, not the shared curve', async () => {
   assert.ok(cfg.gains['SIM#0'] > 0 && cfg.gains['SIM#0'] < 1);
 });
 
+test('lastContrast reports what ExtraDim is doing', async () => {
+  const { cal } = await calibrated();
+  const { cfg, ctl, writes } = controller(cal);
+  cfg.extradim = true;
+
+  // Bright room: brightness alone can reach the target, so contrast stays put.
+  ctl.applyNow();
+  assert.equal(ctl.lastContrast['SIM#0'], cfg.calContrast);
+
+  // Dark room: the target drops under the panel's floor and contrast takes over.
+  ctl.ambientLux = 0.1;
+  ctl.applyNow();
+  assert.ok(
+    ctl.lastContrast['SIM#0'] < cfg.calContrast,
+    'the UI reads ExtraDim as engaged from this number',
+  );
+  assert.deepEqual(
+    writes.at(-1).slice(1),
+    [ctl.lastLevels['SIM#0'], ctl.lastContrast['SIM#0']],
+    'what is reported must be what was written',
+  );
+});
+
+test('a hand-set contrast is driven as given, not re-derived', async () => {
+  const { cal } = await calibrated();
+  const { cfg, ctl, writes } = controller(cal);
+  cfg.extradim = true;
+  cfg.autoLearn = false;
+
+  ctl.manualCommit('all', 0, cfg.minContrast);
+  writes.length = 0;
+  ctl.applyNow();
+
+  assert.deepEqual(writes[0], [0, 0, cfg.minContrast]);
+  assert.equal(ctl.lastContrast['SIM#0'], cfg.minContrast);
+  assert.equal(ctl.overridePct('SIM#0'), 0, 'brightness is held at the bottom with it');
+});
+
 test('the override is what applyNow actually drives', async () => {
   const { cal } = await calibrated();
   const { ctl, writes } = controller(cal);
@@ -244,4 +282,23 @@ test('the override is what applyNow actually drives', async () => {
   const levels = ctl.applyNow();
   assert.equal(levels['SIM#0'], 30, 'a held override must survive the next reading');
   assert.deepEqual(writes[0].slice(0, 2), [0, 30]);
+});
+
+test('displays are named off their PnP id, numbered only when they collide', () => {
+  const path = (model, uid) => `\\?\DISPLAY#${model}#5&1c2b8ea5&0&UID${uid}#{e6f07b5f}`;
+
+  const mixed = nameMonitors([path('SAM7089', 4353), path('HWP3320', 4354)]);
+  assert.deepEqual(
+    mixed.map((d) => d.name),
+    ['SAM7089', 'HWP3320'],
+  );
+  assert.equal(mixed[0].key, path('SAM7089', 4353), 'the key stays the whole device path');
+
+  const twins = nameMonitors([path('SAM7089', 4353), path('SAM7089', 4354)]);
+  assert.deepEqual(
+    twins.map((d) => d.name),
+    ['SAM7089 (1)', 'SAM7089 (2)'],
+  );
+
+  assert.equal(nameMonitors(['nothing-like-a-device-path'])[0].name, 'Display 1');
 });

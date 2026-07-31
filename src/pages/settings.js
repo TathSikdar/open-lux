@@ -2,32 +2,134 @@
 // Copyright (C) 2026 Tath Sikdar
 
 /**
- * @fileoverview Settings: preferences, the LDR constants, and the draggable
- * response curve.
+ * @fileoverview Settings: calibration, preferences, the LDR constants, and the
+ * draggable response curve.
  */
 
-import { calibrationOf, defaultYs } from '../core.js';
+import { calibrationOf, defaultYsFor } from '../core.js';
 import { CurveGraph } from '../graph.js';
 import * as setup from '../setup.js';
-import { $, api, curve, editing, patch } from '../ui.js';
-
-const graph = new CurveGraph($('set-graph'), curve, {
-  editable: true,
-  onChange: () => {
-    editing.curveDirty = true;
-    $('curve-save').disabled = false;
-  },
-});
+import { $, api, curve, editing, note, patch } from '../ui.js';
+import { buildCalibrate } from './calibrate.js';
 
 /** @type {!Object} the most recent `state` push */
 let state = { cfg: null, displays: [] };
 
 /**
- * The calibration the shared curve is drawn against: the first calibrated
- * display. Panels mostly differ by scale here, not by shape.
+ * The graphs on screen, in display order. One when every display follows the
+ * same knob, one each when they are learned separately -- because that is the
+ * only mode where they differ, by their gains.
+ * @type {!Array<{key: ?string, graph: !CurveGraph}>}
+ */
+let graphs = [];
+
+/** What `graphs` was last built for, so a `state` push every second does not
+ *  tear down and rebuild canvases the user may be dragging. null, not '': the
+ *  shared single graph's signature *is* '', and it has to build the first time. */
+let builtFor = null;
+
+/** True when each display is learned on its own gain. */
+function perDisplay() {
+  return !state.cfg.singleKnob && !state.cfg.learnAveraged;
+}
+
+/** The displays worth drawing: all the calibrated ones, or [null] for the
+ *  single shared curve, which is drawn against the first calibrated panel. */
+function graphKeys() {
+  const calibrated = state.displays.filter((d) => calibrationOf(state.cfg, d.key));
+  if (!perDisplay() || calibrated.length < 2) return [null];
+  return calibrated.map((d) => d.key);
+}
+
+function onCurveChange() {
+  editing.curveDirty = true;
+  $('curve-save').disabled = false;
+  // The knots are one shared object, so a drag on one graph moves them all.
+  for (const { graph } of graphs) graph.draw();
+}
+
+/** (Re)creates the canvases. Only when the set of keys has actually changed. */
+function buildGraphs() {
+  const keys = graphKeys();
+  const signature = keys.join('|');
+  if (signature === builtFor) return;
+  builtFor = signature;
+
+  const box = $('set-graphs');
+  box.replaceChildren();
+  graphs = keys.map((key) => {
+    if (key !== null) {
+      const label = document.createElement('p');
+      label.className = 'sub';
+      label.textContent = state.displays.find((d) => d.key === key)?.name ?? key;
+      box.append(label);
+    }
+    const canvas = document.createElement('canvas');
+    canvas.className = 'graph';
+    box.append(canvas);
+    return {
+      key,
+      graph: new CurveGraph(canvas, curve, { editable: true, onChange: onCurveChange }),
+    };
+  });
+}
+
+/** What `buildNames` was last built for, so a `state` push does not replace the
+ *  box under a half-typed name. Only the set of displays can force a rebuild. */
+let namedFor = null;
+
+/**
+ * One text box per display. Blanking it drops the override, so the box goes
+ * back to whatever the monitor calls itself on the next push.
+ */
+function buildNames() {
+  const signature = state.displays.map((d) => d.key).join('|');
+  if (signature === namedFor) return;
+  namedFor = signature;
+
+  const box = $('set-displays');
+  box.replaceChildren();
+  if (!state.displays.length) {
+    box.append(note('No DDC/CI displays detected.'));
+    return;
+  }
+
+  // Straight into the grid, two cells per display -- see #set-displays.
+  for (const d of state.displays) {
+    // The hardware name labels the box even once it has been renamed: it is the
+    // only thing left that says which monitor the row is.
+    const label = document.createElement('label');
+    label.textContent = d.hwName;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = `name-${d.index}`;
+    label.htmlFor = input.id;
+    input.value = d.name;
+    input.addEventListener('change', () => {
+      const names = { ...state.cfg.names };
+      const typed = input.value.trim();
+      if (typed) {
+        names[d.key] = typed;
+      } else {
+        delete names[d.key];
+        input.value = d.hwName; // the box is never left empty
+      }
+      patch({ names });
+    });
+
+    box.append(label, input);
+  }
+}
+
+/**
+ * The calibration a graph is drawn against: its own display's, or the first
+ * calibrated one for the shared curve. Panels mostly differ by scale, not
+ * shape, so one stand-in is honest for the shared case.
  * @return {?Object}
  */
-function referenceCal() {
+function calFor(key) {
+  if (key !== null) return calibrationOf(state.cfg, key);
   for (const d of state.displays) {
     const cal = calibrationOf(state.cfg, d.key);
     if (cal) return cal;
@@ -35,11 +137,57 @@ function referenceCal() {
   return null;
 }
 
-function refreshGraph() {
-  const cal = referenceCal();
-  if (!cal) return graph.setLimits(0, 0);
-  const floor = state.cfg.extradim ? cal.extradimFloor(state.cfg.minContrast) : cal.minLux;
-  graph.setLimits(cal.minLux, floor, cal.maxLux * 1.1);
+/**
+ * The top of the y axis, shared by every graph on the page: the *dimmest*
+ * panel's maximum. One curve drives them all, so an axis sized to the
+ * brightest display would leave the others' reachable range squeezed into the
+ * bottom of the plot -- and a target above this ceiling is one that not every
+ * display can hit anyway.
+ * @return {?number} null until something is calibrated
+ */
+function ceilingLux() {
+  const maxes = state.displays
+    .map((d) => calibrationOf(state.cfg, d.key))
+    .filter(Boolean)
+    .map((cal) => cal.maxLux);
+  return maxes.length ? Math.min(...maxes) : null;
+}
+
+function refreshGraphs() {
+  const ceiling = ceilingLux();
+  for (const { key, graph } of graphs) {
+    graph.setGain(key === null ? 1.0 : (state.cfg.gains[key] ?? 1.0));
+
+    const cal = calFor(key);
+    if (!cal) {
+      graph.setLimits(0, 0);
+      continue;
+    }
+    const on = state.cfg.extradim;
+    const floor = on ? cal.extradimFloor(state.cfg.minContrast) : cal.minLux;
+    graph.setLimits(on ? cal.minLux : 0, floor, ceiling);
+  }
+}
+
+/**
+ * The minimum-contrast slider's top end: a minimum above the contrast the
+ * panel was measured at is meaningless. It is the slider's `max` rather than a
+ * clamp on the way out, so the useful range fills the whole track.
+ */
+function contrastCeiling() {
+  const cal = calFor(null);
+  return cal ? cal.calContrast : state.cfg.calContrast;
+}
+
+function refreshExtradim() {
+  const min = Number($('xd-min').value);
+  $('xd-min-value').textContent = `${min}%`;
+
+  const cal = calFor(null);
+  $('xd-floor').textContent = !cal
+    ? 'Calibrate a display to see how far ExtraDim reaches.'
+    : `Brightness alone bottoms out at ${cal.minLux.toFixed(2)} lux. ` +
+      `At ${min}% contrast this display reaches ${cal.extradimFloor(min).toFixed(2)} lux.`;
 }
 
 /** Fills the port dropdown. Only worth doing when the page is opened. */
@@ -86,6 +234,9 @@ for (const [id, key] of [
   });
 }
 
+$('xd-min').addEventListener('input', refreshExtradim);
+$('xd-min').addEventListener('change', () => patch({ minContrast: Number($('xd-min').value) }));
+
 $('curve-save').addEventListener('click', () => {
   editing.curveDirty = false;
   $('curve-save').disabled = true;
@@ -93,7 +244,7 @@ $('curve-save').addEventListener('click', () => {
 });
 
 $('curve-reset').addEventListener('click', () => {
-  curve.ys = defaultYs();
+  curve.ys = defaultYsFor(state.cfg);
   editing.curveDirty = false;
   $('curve-save').disabled = true;
   api.resetCurve();
@@ -107,6 +258,8 @@ export const settingsPage = {
     state = next;
     const cfg = state.cfg;
 
+    buildCalibrate(state);
+    buildNames();
     $('knob-one').checked = cfg.singleKnob;
     $('knob-each').checked = !cfg.singleKnob;
     $('set-theme').value = cfg.theme;
@@ -122,18 +275,24 @@ export const settingsPage = {
 
     // Averaging only means something when there is more than one knob.
     const perDisplay = cfg.autoLearn && !cfg.singleKnob;
-    $('learn-avg').disabled = !perDisplay;
-    $('learn-each').disabled = !perDisplay;
+    const splittable = cfg.autoLearn && !cfg.singleKnob;
+    $('learn-avg').disabled = !splittable;
+    $('learn-each').disabled = !splittable;
 
-    refreshGraph();
+    $('xd-min').max = String(contrastCeiling()); // before the value, or it clamps
+    $('xd-min').value = String(cfg.minContrast);
+    refreshExtradim();
+
+    buildGraphs();
+    refreshGraphs();
   },
 
   enter() {
     loadPorts();
-    graph.draw();
+    for (const { graph } of graphs) graph.draw();
   },
 
   tick(t) {
-    graph.setAmbient(t.ambientLux);
+    for (const { graph } of graphs) graph.setAmbient(t.ambientLux);
   },
 };

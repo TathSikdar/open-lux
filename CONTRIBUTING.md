@@ -70,6 +70,17 @@ whole design rests on: the app only touches monitors it has actually measured.
 at whatever the display was calibrated at. Using it as a general dimming knob
 would wreck the calibration tables' meaning.
 
+**The renderer owns no truth.** `main.js` pushes `state` when the config or the
+display list changes and `tick` on every sensor reading; every control sends an
+action back and waits for the next push. No page keeps its own copy of the
+config to be kept in sync. The one exception is a curve part-way through being
+dragged, which is unsaved by definition and lives in `ui.js`.
+
+**The icons are generated.** `src/icon.png` and `src/icon.ico` come out of
+`src/icon.svg` via `npm run icon` — edit the SVG and re-run it, never the
+rasters. The same SVG is the window icon, the tray icon, the installer icon and
+the page favicon, so it has to stay legible at 16x16.
+
 ## Packaging
 
 `electron-builder` builds the distributable app, configured by the `build` key
@@ -87,10 +98,13 @@ mislabelled installer.
 
 ## Hardware notes
 
-The Arduino sketch is intentionally almost empty — it reports a raw ADC value
-once a second and nothing else. Resist putting logic in it. Anything it decides
-is something the user has to reflash to change, which is exactly the problem the
-current design exists to fix.
+The Arduino sketch is intentionally almost empty — it averages 128 analog reads
+and prints the result, with decimals, ten times a second. Nothing else. Resist
+putting logic in it: anything it decides is something the user has to reflash to
+change, which is exactly the problem the current design exists to fix. The
+oversampling is the one exception, and it earns its place — it is where the
+extra bits in a dim room come from, and truncating the average back to an int
+throws all of them away.
 
 If you're adding support for a different sensor, the conversion belongs in
 `adcToLux()` in `core.js`, with its constants exposed in Settings.

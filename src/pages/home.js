@@ -86,6 +86,51 @@ function showLevels() {
   }
 }
 
+/** Set while the contrast slider is held, for the same reason as `dragging`. */
+let holdingContrast = false;
+
+/**
+ * The contrast readout, which doubles as the ExtraDim control.
+ *
+ * Always on screen -- contrast is half of what is being driven, so a Home
+ * screen that only showed brightness was telling half the story. It is only
+ * draggable with ExtraDim on and every display bottomed out at 0% brightness:
+ * above that, contrast is not what is dimming the screen. Its position is what
+ * the control loop actually wrote, not a value re-derived here.
+ *
+ * @param {!Object<string, number>} contrast display key -> contrast %
+ */
+function showExtradim(contrast) {
+  const cfg = state.cfg;
+  const line = $('home-xd-state');
+  const input = $('home-xd-contrast');
+
+  const brights = Object.values(levels);
+  const bottomed = brights.length > 0 && brights.every((b) => b === 0);
+  // A slider from 50 to 50 has nowhere to go; say why rather than offer a stub.
+  const travel = cfg?.calContrast > cfg?.minContrast;
+  // A tick can land before the first `state` push, so cfg may not exist yet.
+  const live = !!cfg?.extradim && bottomed && travel;
+
+  input.disabled = !live;
+  // Read-only, the track still has to span the range the number sits in.
+  input.min = String(live ? cfg.minContrast : 0);
+  input.max = String(cfg?.calContrast ?? 100);
+
+  const values = Object.values(contrast);
+  if (values.length && !holdingContrast) {
+    input.value = String(Math.round(values.reduce((a, b) => a + b, 0) / values.length));
+  }
+  $('home-xd-value').textContent = values.length ? `${input.value}%` : '--';
+
+  line.textContent =
+    !cfg?.extradim || !bottomed
+      ? ''
+      : travel
+        ? 'Brightness is at 0% – contrast is doing the dimming now.'
+        : 'Brightness is at 0%. Lower the minimum contrast under Settings to go dimmer.';
+}
+
 /**
  * Paints the connection indicator. Three states, because "no port" and "port
  * open but silent" need different fixes from the user.
@@ -132,7 +177,7 @@ export const homePage = {
       box.append(
         note(
           'No display is calibrated yet - nothing will be changed. ' +
-            'Go to Calibrate to measure one.',
+            'Measure one under Settings > Calibrate.',
         ),
       );
     }
@@ -153,8 +198,23 @@ export const homePage = {
     $('readout').textContent =
       t.ambientLux === null ? '--' : `${formatLux(t.ambientLux)} lux ambient`;
     showSensor(t.sensor, t.status);
+    showExtradim(t.contrast ?? {});
     showLevels();
   },
 };
 
 $('home-extradim').addEventListener('change', (e) => patch({ extradim: e.target.checked }));
+
+// The contrast knob always drives every calibrated display: ExtraDim only
+// happens once they have all bottomed out together, so there is nothing for a
+// per-display split to express here.
+const contrastSlider = $('home-xd-contrast');
+contrastSlider.addEventListener('pointerdown', () => (holdingContrast = true));
+contrastSlider.addEventListener('input', () => {
+  $('home-xd-value').textContent = `${contrastSlider.value}%`;
+  api.previewManual('all', 0, Number(contrastSlider.value));
+});
+contrastSlider.addEventListener('change', () => {
+  holdingContrast = false;
+  api.commitManual('all', 0, Number(contrastSlider.value));
+});

@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 
 import { BrowserWindow, Menu, Tray, app, ipcMain, nativeTheme, shell } from 'electron';
 
-import { calibrationOf, curveOf, defaultYs, withDefaults } from './core.js';
+import { calibrationOf, curveOf, defaultYs, defaultYsFor, withDefaults } from './core.js';
 import { Controller } from './controller.js';
 import {
   CalibrationRun,
@@ -103,10 +103,14 @@ function pushState() {
   if (!ctl) return;
   send('state', {
     cfg,
+    // The user's name wins over the hardware's everywhere downstream: sliders,
+    // the calibrate dropdown, the wizard. Renaming is the only reason a display
+    // is ever called anything but what it reports.
     displays: ctl.displays.map(({ index, key, name }) => ({
       index,
       key,
-      name,
+      name: cfg.names[key] || name,
+      hwName: name, // what it is called with the override cleared
       calibrated: !!calibrationOf(cfg, key),
     })),
     curveYs: ctl.curve.ys,
@@ -118,6 +122,7 @@ function pushTick() {
   send('tick', {
     ambientLux: ctl?.ambientLux ?? null,
     levels: ctl?.lastLevels ?? {},
+    contrast: ctl?.lastContrast ?? {},
     status,
     sensor: {
       connected: sensor.connected,
@@ -278,7 +283,7 @@ function registerIpc() {
   });
 
   ipcMain.handle('curve:reset', async () => {
-    cfg.curveYs = defaultYs();
+    cfg.curveYs = defaultYsFor(cfg);
     cfg.gains = {};
     ctl.curve = curveOf(cfg);
     save();
@@ -311,9 +316,11 @@ function registerIpc() {
     }
   });
 
-  ipcMain.handle('manual:preview', (_e, { key, pct }) => ctl.manualPreview(key, pct));
-  ipcMain.handle('manual:commit', (_e, { key, pct }) => {
-    ctl.manualCommit(key, pct);
+  ipcMain.handle('manual:preview', (_e, { key, pct, contrast }) =>
+    ctl.manualPreview(key, pct, contrast),
+  );
+  ipcMain.handle('manual:commit', (_e, { key, pct, contrast }) => {
+    ctl.manualCommit(key, pct, contrast);
     pushState();
   });
 
@@ -336,6 +343,16 @@ function registerIpc() {
     try {
       const cal = await calRun.run();
       cfg.calibrations[info.key] = cal.toJSON();
+
+      // A curve still at its factory shape was drawn for no panel in
+      // particular. Now that one has been measured, redraw it for the range
+      // that panel actually has -- but only while it is untouched, or a first
+      // calibration would throw away a curve the user had already tuned.
+      const generic = defaultYs();
+      if (cfg.curveYs.every((y, i) => Math.abs(y - generic[i]) < 1e-9)) {
+        cfg.curveYs = defaultYsFor(cfg);
+        ctl.curve = curveOf(cfg);
+      }
       save();
       writer.forget(info.key);
       send('calibrate:done', {

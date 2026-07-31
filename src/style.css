@@ -479,6 +479,20 @@ main {
 .row.grow > input[type="range"] {
   flex: 1;
 }
+
+/* The rename rows: a wrapper div, so the card's own gap does not reach them.
+   Grid rather than a .row each, so every box starts at the same x however long
+   the hardware names beside them are. */
+#set-displays {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+}
+/* The "no displays" note is not one of the two columns. */
+#set-displays > p {
+  grid-column: 1 / -1;
+}
 /* `display: flex` above would otherwise beat the UA sheet's [hidden] rule. */
 .row[hidden] {
   display: none;
@@ -619,7 +633,8 @@ button.primary:disabled {
 /* ---- inputs ---- */
 
 select,
-input[type="number"] {
+input[type="number"],
+input[type="text"] {
   font: inherit;
   padding: var(--field-pad);
   min-width: 92px;
@@ -629,8 +644,14 @@ input[type="number"] {
   border-radius: var(--field-radius);
 }
 select:hover,
-input[type="number"]:hover {
+input[type="number"]:hover,
+input[type="text"]:hover {
   border-color: var(--border-hi);
+}
+/* Typing into one is the exception to the app-wide no-selection rule. */
+input[type="text"] {
+  user-select: text;
+  cursor: text;
 }
 
 label {

@@ -18,8 +18,12 @@ contextBridge.exposeInMainWorld('openlux', {
   refreshDisplays: () => ipcRenderer.invoke('displays:refresh'),
   listPorts: () => ipcRenderer.invoke('ports:list'),
   identifyDisplay: (index) => ipcRenderer.invoke('identify:start', index),
-  previewManual: (key, pct) => ipcRenderer.invoke('manual:preview', { key, pct }),
-  commitManual: (key, pct) => ipcRenderer.invoke('manual:commit', { key, pct }),
+  // contrast: null lets the control loop derive one from the brightness; the
+  // ExtraDim slider passes a number, and that one is driven as given.
+  previewManual: (key, pct, contrast = null) =>
+    ipcRenderer.invoke('manual:preview', { key, pct, contrast }),
+  commitManual: (key, pct, contrast = null) =>
+    ipcRenderer.invoke('manual:commit', { key, pct, contrast }),
   startCalibration: (index, contrast) =>
     ipcRenderer.invoke('calibrate:start', { index, contrast }),
   cancelCalibration: () => ipcRenderer.invoke('calibrate:cancel'),

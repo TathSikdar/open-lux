@@ -168,19 +168,48 @@ function ddcci() {
   return require('@hensm/ddcci');
 }
 
+/** Two identical panels need telling apart; a lone one does not need a number. */
+function dedupe(list) {
+  return list.map((d) =>
+    list.filter((o) => o.name === d.name).length > 1
+      ? { ...d, name: `${d.name} (${d.index + 1})` }
+      : d,
+  );
+}
+
+/**
+ * Windows: a raw ddcci monitor-id list, named and numbered.
+ *
+ * The id is a device path that carries the PnP id (\\?\DISPLAY#SAM7089#...) --
+ * the manufacturer code plus product code the panel reports for itself. The
+ * marketing name ("S24F350") would need the EDID out of the registry or WMI;
+ * this is one regex, and the user can rename it anyway.
+ * @param {!Array<string>} ids
+ */
+export function nameMonitors(ids) {
+  return dedupe(
+    ids.map((id, i) => ({
+      index: i,
+      key: id,
+      name: id.match(/DISPLAY#([^#]+)#/)?.[1] ?? `Display ${i + 1}`,
+      id,
+    })),
+  );
+}
+
 /**
  * Detected DDC/CI monitors. Laptop internal panels have no DDC and will not
  * show up -- that is the same scope the project always had.
+ *
+ * The name is the monitor's own, off its EDID, not "Display 1": on a desk with
+ * two panels the number says nothing about which is which. cfg.names overrides
+ * it, and main.js applies that on the way to the renderer.
  */
 export async function enumerateDisplays() {
-  if (process.platform === 'win32') {
-    // ponytail: the ddcci id already carries the monitor's device path, so
-    // unlike the Qt build's model+index key this survives a replug in a
-    // different order. Kept as the key verbatim.
-    return ddcci()
-      .getMonitorList()
-      .map((id, i) => ({ index: i, key: id, name: `Display ${i + 1}`, id }));
-  }
+  // ponytail: the ddcci id already carries the monitor's device path, so unlike
+  // the Qt build's model+index key this survives a replug in a different order.
+  // Kept as the key verbatim.
+  if (process.platform === 'win32') return nameMonitors(ddcci().getMonitorList());
 
   // ddcutil detect prints a stanza per bus; "Display N" then a Model line.
   const { stdout } = await run('ddcutil', ['detect', '--brief']);
@@ -192,11 +221,11 @@ export async function enumerateDisplays() {
     out.push({
       index: out.length,
       key: `${model}#${bus}`,
-      name: `${model} (${out.length + 1})`,
+      name: model,
       id: bus,
     });
   }
-  return out;
+  return dedupe(out);
 }
 
 /**

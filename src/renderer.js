@@ -14,13 +14,12 @@
 
 import { $, api, curve, editing } from './ui.js';
 import * as setup from './setup.js';
-import { calibratePage } from './pages/calibrate.js';
-import { extradimPage } from './pages/extradim.js';
 import { homePage } from './pages/home.js';
 import { settingsPage } from './pages/settings.js';
 
-/** @const {!Array<!Object>} in sidebar order. */
-const PAGES = [homePage, calibratePage, extradimPage, settingsPage];
+/** @const {!Array<!Object>} in sidebar order. Calibrate and ExtraDim are
+ *  sections of Settings, not pages of their own. */
+const PAGES = [homePage, settingsPage];
 
 /** @type {?Object} the most recent `state` push; null until the first one. */
 let state = null;
@@ -50,6 +49,17 @@ function go(id) {
 for (const button of document.querySelectorAll('.nav')) {
   button.addEventListener('click', () => go(button.dataset.page));
 }
+
+// --- the sidebar -------------------------------------------------------------
+
+// A class on the body rather than two hidden attributes: the sidebar, the
+// re-open button and the main pane all key off the one state, in CSS.
+const setSidebar = (open) => {
+  document.body.classList.toggle('nav-closed', !open);
+  (open ? $('nav-close') : $('nav-open')).focus();
+};
+$('nav-close').addEventListener('click', () => setSidebar(false));
+$('nav-open').addEventListener('click', () => setSidebar(true));
 
 // --- the opening animation ---------------------------------------------------
 
