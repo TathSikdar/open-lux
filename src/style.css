@@ -36,11 +36,15 @@
   --button-hover: #27272a;
   --button-press: #171719;
   --button-off: #141416;
+  /* One orange, everywhere. Hover, press and the disabled wash are mixed off
+     --accent rather than being three more hand-picked hexes that drifted apart
+     from it (and from the icon and the graph, which read the same token). Only
+     --accent itself is ever a colour literal. */
   --accent: #e8752c;
-  --accent-hover: #f58a45;
-  --accent-press: #d1651f;
+  --accent-hover: color-mix(in srgb, var(--accent) 82%, #fff);
+  --accent-press: color-mix(in srgb, var(--accent) 86%, #000);
   --accent-fg: #16130f;
-  --accent-off: #2a2521;
+  --accent-off: color-mix(in srgb, var(--accent) 14%, var(--button-off));
   --accent-off-fg: #6b6259;
   --handle: #ece9e4;
 
@@ -52,6 +56,8 @@
   --knot: #ece9e4;
   --extra: #a97cf5; /* ExtraDim: contrast has taken over */
   --extra-dim: #6a4d9a; /* the same line, dimmed for the dotted marker */
+  --full: #4ea8d8; /* the other end: brightness has nothing left to give */
+  --full-dim: #2f6d8e;
   --now: #5ec98f; /* where the room is right now */
   --now-dim: #3b7d59;
   --bad: #e0574f;
@@ -82,6 +88,10 @@
   --desk-min: 200px;
   --margin: 24px;
   --spacing: 16px;
+  --sidebar-w: 168px;
+  /* One duration for everything the sidebar toggle moves, so the panel, the
+     chevron and the title all land together. */
+  --nav-anim: 220ms;
 
   --sans: "Segoe UI", Inter, Cantarell, "DejaVu Sans", system-ui, sans-serif;
   --serif: Georgia, "Iowan Old Style", "DejaVu Serif", "Liberation Serif", serif;
@@ -110,11 +120,13 @@
     --button-hover: #f2ede6;
     --button-press: #e8e2d9;
     --button-off: #f2efea;
+    /* Deepened from the dark theme's orange: #e8752c on white is 2.6:1, which
+       fails as text. Still one literal, with the rest mixed off it. */
     --accent: #c25808;
-    --accent-hover: #a84904;
-    --accent-press: #8f3d03;
+    --accent-hover: color-mix(in srgb, var(--accent) 86%, #000);
+    --accent-press: color-mix(in srgb, var(--accent) 72%, #000);
     --accent-fg: #ffffff;
-    --accent-off: #eadfd4;
+    --accent-off: color-mix(in srgb, var(--accent) 14%, var(--button-off));
     --accent-off-fg: #a8a099;
     --handle: #4a443e;
 
@@ -125,6 +137,8 @@
     --knot: #221f1c;
     --extra: #7c4fd0;
     --extra-dim: #a98ede;
+    --full: #2b7fa8;
+    --full-dim: #7fb4cd;
     --now: #2f9e63;
     --now-dim: #79bf9b;
     --bad: #c0392b;
@@ -251,26 +265,130 @@ body {
   #splash {
     display: none;
   }
+  /* The sidebar still collapses, it just does it instantly. */
+  :root {
+    --nav-anim: 0ms;
+  }
 }
 
 /* ---- sidebar ---- */
 
 #sidebar {
-  flex: 0 0 168px;
+  flex: 0 0 var(--sidebar-w);
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 20px 12px;
   background: var(--sidebar);
   border-right: 1px solid var(--border);
+  /* Slid out on a negative margin rather than `display: none`d, so it can
+     animate: the panel keeps its width the whole way and the contents travel
+     with it instead of being squashed against the edge.
+     visibility is in the transition so the collapsed panel's buttons drop out
+     of the tab order, but only once the animation has finished. */
+  transition:
+    margin-left var(--nav-anim) ease,
+    opacity var(--nav-anim) ease,
+    visibility var(--nav-anim);
+}
+
+#brand-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
 }
 
 #brand {
-  margin: 0 0 14px;
+  margin: 0;
   padding-left: 8px;
   font-family: var(--serif);
   font-size: var(--brand-size);
   font-weight: normal;
+}
+
+/* ---- collapsing the sidebar ---- */
+
+/* Both toggles are the same small round button; only one is ever on screen.
+   The icon is the panel itself with its rail marked, so neither button has to
+   point a direction. Grid rather than the button's default centring. */
+#nav-close,
+#nav-open {
+  flex: none;
+  margin-left: auto;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border-color: transparent;
+}
+.panel-icon {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+}
+
+#nav-close:hover,
+#nav-open:hover {
+  color: var(--text);
+  background: var(--hover);
+  border-color: var(--border-hi);
+}
+
+/* Parked over the top-left of the page it uncovers. Faded rather than
+   `display: none`d so it can cross over with the sidebar. */
+#nav-open {
+  position: fixed;
+  top: 20px;
+  left: 12px;
+  z-index: 10;
+  opacity: 0;
+  visibility: hidden;
+  background: var(--sidebar);
+  border-color: var(--border);
+  transition:
+    opacity var(--nav-anim) ease,
+    visibility var(--nav-anim);
+}
+
+body.nav-closed #sidebar {
+  margin-left: calc(-1 * var(--sidebar-w));
+  opacity: 0;
+  visibility: hidden;
+}
+body.nav-closed #nav-open {
+  opacity: 1;
+  visibility: visible;
+}
+/* Clear the floating button, which sits over the page's own padding. */
+body.nav-closed main {
+  padding-left: 28px;
+}
+
+/* The page title carries the app name only while the sidebar -- the other
+   place it is written -- is away. Wiped in with the same timing. */
+.page > header h2::before {
+  content: "open-lux ";
+  display: inline-block;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  white-space: pre;
+  vertical-align: bottom;
+  transition:
+    max-width var(--nav-anim) ease,
+    opacity var(--nav-anim) ease;
+}
+body.nav-closed .page > header h2::before {
+  max-width: 8em;
+  opacity: 1;
 }
 
 .nav {
@@ -301,6 +419,7 @@ main {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  transition: padding-left var(--nav-anim) ease;
 }
 
 .page {
@@ -359,6 +478,10 @@ main {
 }
 .row.grow > input[type="range"] {
   flex: 1;
+}
+/* `display: flex` above would otherwise beat the UA sheet's [hidden] rule. */
+.row[hidden] {
+  display: none;
 }
 
 .unit,
@@ -428,11 +551,26 @@ main {
   max-height: 40vh;
 }
 
+/* Compact is for a window too short to hold the controls, so the decoration is
+   the first thing to go. */
+body.compact #hero {
+  display: none;
+}
+
 .graph {
   width: 100%;
   flex: 1;
   min-height: var(--graph-min);
   border-radius: 8px;
+}
+
+/* One graph fills the card; several share it evenly, each with its caption. */
+#set-graphs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-height: 0;
 }
 
 /* ---- buttons ---- */

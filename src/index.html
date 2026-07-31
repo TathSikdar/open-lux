@@ -29,19 +29,35 @@
     </div>
 
     <nav id="sidebar">
-      <h1 id="brand">open-lux</h1>
+      <div id="brand-row">
+        <h1 id="brand">open-lux</h1>
+        <button id="nav-close" type="button" aria-label="Close sidebar">
+          <svg class="panel-icon" viewBox="0 0 16 16" aria-hidden="true">
+            <rect x="1.5" y="2.5" width="13" height="11" rx="2.5" />
+            <path d="M6.5 2.5v11" />
+          </svg>
+        </button>
+      </div>
       <button class="nav" data-page="home" aria-current="page">Home</button>
-      <button class="nav" data-page="calibrate">Calibrate</button>
-      <button class="nav" data-page="extradim">ExtraDim</button>
       <button class="nav" data-page="settings">Settings</button>
     </nav>
+
+    <!-- Only visible once the sidebar is closed; it is the way back. -->
+    <button id="nav-open" type="button" aria-label="Open sidebar">
+      <svg class="panel-icon" viewBox="0 0 16 16" aria-hidden="true">
+        <rect x="1.5" y="2.5" width="13" height="11" rx="2.5" />
+        <path d="M6.5 2.5v11" />
+      </svg>
+    </button>
 
     <main>
       <!-- ---- Home ---- -->
       <section id="page-home" class="page">
         <header><h2>Home</h2></header>
 
-        <div class="card">
+        <!-- Hero. The compact layout drops it: it is decoration, and compact
+             exists for a window too short to hold the controls. -->
+        <div class="card" id="hero">
           <!-- The Home screen illustration: a desk, front elevation. Markup
                rather than an asset, so it themes itself from the same custom
                properties as everything else and there is nothing to bundle.
@@ -67,17 +83,20 @@
               <path d="M43 130 H63 M43 135 H63 M43 140 H63" stroke="var(--desk-edge)" />
               <circle cx="53" cy="160" r="2.2" fill="var(--accent)" stroke="none" />
 
-              <!-- bookshelf speakers, flanking the monitor -->
+              <!-- bookshelf speakers, flanking the monitor. The cabinet is
+                   sized off the drivers: 6 units of air above the tweeter and
+                   the same 6 below the woofer, so it does not read as a box
+                   with the pair pushed up inside it. -->
               <g fill="var(--case)" stroke="var(--case-edge)">
-                <rect x="60" y="56" width="28" height="54" rx="2" />
-                <rect x="232" y="56" width="28" height="54" rx="2" />
+                <rect x="60" y="67" width="28" height="43" rx="2" />
+                <rect x="232" y="67" width="28" height="43" rx="2" />
               </g>
               <g fill="var(--screen)" stroke="var(--case-edge)">
-                <circle cx="74" cy="84" r="9" /><circle cx="74" cy="66" r="4" />
-                <circle cx="246" cy="84" r="9" /><circle cx="246" cy="66" r="4" />
+                <circle cx="74" cy="95" r="9" /><circle cx="74" cy="77" r="4" />
+                <circle cx="246" cy="95" r="9" /><circle cx="246" cy="77" r="4" />
               </g>
               <g fill="var(--case-edge)" stroke="none">
-                <circle cx="74" cy="84" r="3" /><circle cx="246" cy="84" r="3" />
+                <circle cx="74" cy="95" r="3" /><circle cx="246" cy="95" r="3" />
               </g>
 
               <!-- monitor: bezel, lit panel, neck, base -->
@@ -85,9 +104,11 @@
                     fill="var(--case)" stroke="var(--case-edge)" />
               <rect x="112" y="32" width="96" height="54" rx="2"
                     fill="var(--screen)" stroke="none" />
-              <!-- the panel is on: this app is about how brightly -->
+              <!-- the panel is on: this app is about how brightly. Full accent,
+                   no opacity -- a faded one read as a different, darker orange
+                   than the rest of the app. -->
               <rect x="116" y="36" width="88" height="46" rx="2"
-                    fill="var(--accent)" opacity="0.45" stroke="none" />
+                    fill="var(--accent)" stroke="none" />
               <rect x="153" y="90" width="14" height="12"
                     fill="var(--case-edge)" stroke="none" />
               <rect x="136" y="102" width="48" height="8" rx="2"
@@ -127,20 +148,28 @@
               ></span
             >
           </label>
+          <!-- Always present: contrast is half of what is being driven, so
+               hiding it left the Home screen telling only half the story. It
+               is only draggable once brightness has bottomed out at 0%, since
+               above that contrast is not what is dimming the screen. -->
+          <div class="row grow" id="home-xd-row">
+            <label for="home-xd-contrast">Contrast</label>
+            <input type="range" id="home-xd-contrast" step="1" />
+            <output id="home-xd-value" class="value">--</output>
+          </div>
+          <p id="home-xd-state" class="sub"></p>
         </div>
       </section>
 
-      <!-- ---- Calibrate ---- -->
-      <section id="page-calibrate" class="page" hidden>
-        <header>
-          <h2>Calibrate</h2>
-          <p class="sub">
-            Measures what this display actually emits, so ambient light can be
-            matched to it.
-          </p>
-        </header>
+      <!-- ---- Settings ---- -->
+      <section id="page-settings" class="page" hidden>
+        <header><h2>Settings</h2></header>
 
         <div class="card">
+          <p class="group">
+            Calibrate &ndash; measure what a display actually emits, so ambient
+            light can be matched to it
+          </p>
           <div class="row">
             <label for="cal-display">Display</label>
             <select id="cal-display"></select>
@@ -160,63 +189,23 @@
               (~1&nbsp;min).
             </li>
           </ol>
-        </div>
-
-        <div id="cal-square" aria-hidden="true"></div>
-
-        <button id="cal-button" class="primary">Ready to calibrate</button>
-        <progress id="cal-bar" max="100" value="0" hidden></progress>
-        <p id="cal-progress" class="sub"></p>
-      </section>
-
-      <!-- ---- ExtraDim ---- -->
-      <section id="page-extradim" class="page" hidden>
-        <header>
-          <h2>ExtraDim</h2>
-          <p class="sub">
-            Once brightness hits 0% the display can still go darker by dropping
-            contrast. The purple stretch of the curve is where that happens.
-          </p>
-        </header>
-
-        <div class="card">
-          <label class="check">
-            <input type="checkbox" id="xd-enable" />
-            <span>Enable ExtraDim</span>
-          </label>
-        </div>
-
-        <div class="card">
+          <div id="cal-square" aria-hidden="true"></div>
           <div class="row">
-            <label for="xd-display">Preview display</label>
-            <select id="xd-display"></select>
+            <button id="cal-button" class="primary">Ready to calibrate</button>
           </div>
-          <div class="row grow">
-            <label for="xd-min">Minimum contrast</label>
-            <input type="range" id="xd-min" min="0" max="100" step="1" />
-            <output id="xd-min-value" class="value">--</output>
-          </div>
-          <p id="xd-floor" class="sub"></p>
+          <progress id="cal-bar" max="100" value="0" hidden></progress>
+          <p id="cal-progress" class="sub"></p>
         </div>
-
-        <div class="card grow">
-          <canvas id="xd-graph" class="graph"></canvas>
-        </div>
-      </section>
-
-      <!-- ---- Settings ---- -->
-      <section id="page-settings" class="page" hidden>
-        <header><h2>Settings</h2></header>
 
         <div class="card">
           <p class="group">Home screen</p>
           <label class="check">
             <input type="radio" name="knob" id="knob-one" />
-            <span>One knob for every display</span>
+            <span>One slider for every display</span>
           </label>
           <label class="check">
             <input type="radio" name="knob" id="knob-each" />
-            <span>A knob per display</span>
+            <span>A slider per display</span>
           </label>
         </div>
 
@@ -255,9 +244,27 @@
           </label>
         </div>
 
+        <div class="card">
+          <p class="group">ExtraDim</p>
+          <p class="sub">
+            Once brightness hits 0% the display can still go darker by dropping
+            contrast. Turn it on from the Home screen; this is how far down it
+            is allowed to go.
+          </p>
+          <div class="row grow">
+            <label for="xd-min">Minimum contrast</label>
+            <!-- max is set from the panel's calibrated contrast in settings.js -->
+            <input type="range" id="xd-min" min="0" max="50" step="1" />
+            <output id="xd-min-value" class="value">--</output>
+          </div>
+          <p id="xd-floor" class="sub"></p>
+        </div>
+
         <div class="card grow">
           <p class="group">Response curve &ndash; drag a point to change it</p>
-          <canvas id="set-graph" class="graph"></canvas>
+          <!-- One canvas, or one per display when each is learned separately.
+               settings.js fills this; see buildGraphs(). -->
+          <div id="set-graphs"></div>
           <div class="row">
             <button id="curve-save" class="primary" disabled>Save curve</button>
             <button id="curve-reset">Reset curve</button>
@@ -270,14 +277,28 @@
             <label for="set-port">Serial port</label>
             <select id="set-port"></select>
           </div>
+          <p class="sub">
+            The three numbers below describe the parts the sensor is built
+            from. The defaults match the kit &ndash; change them only if yours
+            uses different components. They scale every reading, so a wrong one
+            makes the whole app think the room is brighter or darker than it is.
+          </p>
           <div class="row">
-            <label for="set-rfixed">Divider</label>
+            <label for="set-rfixed">Fixed resistor</label>
             <input type="number" id="set-rfixed" min="100" max="1000000" step="10" />
-            <span class="unit">ohm</span>
+            <span class="unit">ohms</span>
+            <span class="hint">the one wired next to the light sensor</span>
+          </div>
+          <div class="row">
+            <label for="set-r10">Light sensor at 10 lux</label>
             <input type="number" id="set-r10" min="100" max="1000000" step="10" />
-            <span class="unit">ohm @10lx</span>
+            <span class="unit">ohms</span>
+            <span class="hint">its resistance in dim light, off the datasheet</span>
+          </div>
+          <div class="row">
+            <label for="set-gamma">Light sensor gamma</label>
             <input type="number" id="set-gamma" min="0.1" max="2" step="0.05" />
-            <span class="unit">gamma</span>
+            <span class="hint">how sharply it reacts to light; 0.7 is typical</span>
           </div>
           <label class="check">
             <input type="checkbox" id="set-tovcc" />
@@ -454,12 +475,10 @@
                 whenever a room looks wrong &ndash; open-lux learns from it.
               </li>
               <li>
-                <b>Calibrate</b> is where you measure any monitor you skipped,
-                or re-measure one you have moved.
-              </li>
-              <li>
-                <b>Settings</b> has the response curve, the theme, and the
-                sensor's constants if you built yours with different parts.
+                <b>Settings</b> starts with Calibrate, for any monitor you
+                skipped or one you have moved. Below it are the response curve,
+                the theme, and the sensor's constants if you built yours with
+                different parts.
               </li>
             </ul>
           </div>
