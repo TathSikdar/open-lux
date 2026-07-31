@@ -61,10 +61,10 @@ def draw_icon(size=256):
     p.setPen(Qt.NoPen)
 
     u = size / 256.0
-    p.setBrush(QColor("#16181d"))
+    p.setBrush(QColor("#121213"))
     p.drawRoundedRect(QRectF(0, 0, size, size), 56 * u, 56 * u)
 
-    p.setBrush(QColor("#5aa9ff"))
+    p.setBrush(QColor("#e8752c"))
     p.drawEllipse(QPointF(size / 2, size / 2), 46 * u, 46 * u)
 
     p.translate(size / 2, size / 2)

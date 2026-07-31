@@ -18,14 +18,15 @@ from PySide6.QtWidgets import QSizePolicy, QWidget
 
 from .core import LUX_MAX, LUX_MIN, Curve
 
-BG = QColor("#16181d")
-GRID = QColor("#272b33")
-AXIS = QColor("#59606e")
-LINE = QColor("#5aa9ff")
-EXTRA = QColor("#c07bff")  # ExtraDim region
-GHOST = QColor("#3d4450")  # what was asked for but cannot be reached
-KNOT = QColor("#e8ecf4")
-NOW = QColor("#4ad2a0")
+# Kept in step with style.qss by hand -- two files, one palette.
+BG = QColor("#101011")
+GRID = QColor("#232325")
+AXIS = QColor("#6b6763")
+LINE = QColor("#e8752c")  # the accent: brightness is doing the work
+EXTRA = QColor("#a97cf5")  # ExtraDim: contrast has taken over
+GHOST = QColor("#3a3a3d")  # asked for, but the panel cannot reach it
+KNOT = QColor("#ece9e4")
+NOW = QColor("#5ec98f")  # where the room is right now
 
 MARGIN_L, MARGIN_R, MARGIN_T, MARGIN_B = 46, 12, 12, 26
 GRAB_PX = 14
@@ -169,7 +170,8 @@ class CurveWidget(QWidget):
 
     def _now(self, p, r):
         x = self._px(self.ambient)
-        p.setPen(QPen(NOW, 1, Qt.DashLine))
+        # Dimmed, or a 1px dashed line reads as plain white against the grid.
+        p.setPen(QPen(NOW.darker(160), 1, Qt.DashLine))
         p.drawLine(QPointF(x, r.top()), QPointF(x, r.bottom()))
         p.setBrush(NOW)
         p.setPen(Qt.NoPen)
