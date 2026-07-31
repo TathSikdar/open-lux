@@ -266,6 +266,54 @@ guessed at.
 
 ## Development
 
+> **The app is being rewritten on Electron** (branch `rewrite/electron`). Both
+> stacks are in the tree while the Electron build is verified against real
+> hardware; the Python one below is still what the released installers ship.
+
+### Electron (the rewrite)
+
+```sh
+npm install
+npm test          # node:test -- no electron, no display, no hardware
+npm run fake      # the app, driven by a simulated day/night cycle
+npm start
+```
+
+DDC/CI needs a native binding that has no prebuilt binaries, so on **Windows**
+`npm install` needs the *Desktop development with C++* workload from
+[Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/) —
+without it `@hensm/ddcci` is skipped and the app reports *No DDC/CI displays
+detected*. It is N-API based, so it needs no `electron-rebuild`. On **Linux**
+there is nothing to compile: install `ddcutil` and make sure your user can
+reach `/dev/i2c-*`.
+
+```
+open-lux/
+├── src/
+│   ├── core.js         lux maths, curve, calibration tables, learning
+│   ├── controller.js   the control loop: reading in, brightness/contrast out
+│   ├── hardware.js     serial reader, DDC writer, calibration sweep
+│   ├── main.js         electron main: window, tray, config file, IPC
+│   ├── preload.cjs     the contextBridge surface
+│   ├── graph.js        the drag-editable curve, on canvas
+│   ├── renderer.js     the four screens
+│   ├── index.html      markup, incl. the Home-screen desk illustration as SVG
+│   └── style.css       the palette, as custom properties
+└── test/
+```
+
+`core.js` and `controller.js` import nothing at all — not electron, not node —
+which is what lets the maths *and* the control loop be tested under bare
+`node --test`, and lets the main process and the renderer load the same file.
+`test/calibration.test.js` drives the real three-minute sweep against a
+simulated panel in about two seconds.
+
+The palette lives only in `style.css`: `graph.js` reads the same custom
+properties with `getComputedStyle`, and Electron's `nativeTheme.themeSource`
+drives `prefers-color-scheme`, so *Follow system* needs no code.
+
+### Python / Qt (what the installers currently ship)
+
 ```sh
 pip install -e ".[dev]"
 pytest

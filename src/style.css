@@ -1,0 +1,447 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 Tath Sikdar
+ *
+ * open-lux theme.
+ *
+ * Warm near-black rather than the usual blue-tinted dark, one orange accent,
+ * pill buttons, and a serif for display type against a sans body.
+ *
+ * The Qt build needed theme.py to hold this palette as a dict, style.qss as a
+ * $token template, and load_style() to substitute one into the other -- because
+ * QSS has no variables and the hand-painted widgets could not read a
+ * stylesheet. Custom properties do all three jobs, and graph.js reads the same
+ * tokens with getComputedStyle, so the two halves of the UI still cannot drift
+ * apart. Electron's nativeTheme.themeSource drives prefers-color-scheme, so
+ * "Follow system" needs no code at all.
+ */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #0c0c0d;
+  --surface: #131314;
+  --sidebar: #121213;
+  --border: #232325;
+  --border-hi: #3a3a3e;
+  --text: #ece9e4;
+  --muted: #8f8b85;
+  --faint: #56534f;
+  --hover: #1b1b1d;
+  --sel: #1f1e1d;
+  --sel-border: #37332e;
+  --field: #191919;
+  --button: #1e1e20;
+  --button-border: #2f2f32;
+  --button-hover: #27272a;
+  --button-press: #171719;
+  --button-off: #141416;
+  --accent: #e8752c;
+  --accent-hover: #f58a45;
+  --accent-press: #d1651f;
+  --accent-fg: #16130f;
+  --accent-off: #2a2521;
+  --accent-off-fg: #6b6259;
+  --handle: #ece9e4;
+
+  /* graph + illustration */
+  --graph-bg: #101011;
+  --grid: #232325;
+  --axis: #6b6763;
+  --ghost: #3a3a3d;
+  --knot: #ece9e4;
+  --extra: #a97cf5; /* ExtraDim: contrast has taken over */
+  --extra-dim: #6a4d9a; /* the same line, dimmed for the dotted marker */
+  --now: #5ec98f; /* where the room is right now */
+  --now-dim: #3b7d59;
+  --desk: #2b2521;
+  --desk-edge: #1c1815;
+  --case: #1b1b1d;
+  --case-edge: #37332e;
+  --screen: #0a0a0b;
+
+  /* metrics -- the roomy set; body.compact overrides them below */
+  --font: 13px;
+  --brand-size: 19px;
+  --heading-size: 27px;
+  --readout-size: 34px;
+  --value-size: 15px;
+  --btn-pad: 9px 20px;
+  --pri-pad: 11px 24px;
+  --nav-pad: 9px 16px;
+  --field-pad: 7px 14px;
+  --card-radius: 16px;
+  --field-radius: 12px;
+  --graph-min: 190px;
+  --desk-min: 200px;
+  --margin: 24px;
+  --spacing: 16px;
+
+  --sans: "Segoe UI", Inter, Cantarell, "DejaVu Sans", system-ui, sans-serif;
+  --serif: Georgia, "Iowan Old Style", "DejaVu Serif", "Liberation Serif", serif;
+}
+
+/* Warm paper rather than a blue-white, to keep the dark theme's temperature.
+   The accent is deepened: #e8752c on white is 2.6:1, which fails as text. */
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+
+    --bg: #f7f4ef;
+    --surface: #ffffff;
+    --sidebar: #f0ece5;
+    --border: #e0dad1;
+    --border-hi: #c4bcb0;
+    --text: #221f1c;
+    --muted: #6f6862;
+    --faint: #a8a099;
+    --hover: #e7e1d8;
+    --sel: #ffffff;
+    --sel-border: #d8cfc2;
+    --field: #ffffff;
+    --button: #ffffff;
+    --button-border: #ddd6cc;
+    --button-hover: #f2ede6;
+    --button-press: #e8e2d9;
+    --button-off: #f2efea;
+    --accent: #c25808;
+    --accent-hover: #a84904;
+    --accent-press: #8f3d03;
+    --accent-fg: #ffffff;
+    --accent-off: #eadfd4;
+    --accent-off-fg: #a8a099;
+    --handle: #4a443e;
+
+    --graph-bg: #fffdf9;
+    --grid: #e6e0d6;
+    --axis: #8b837b;
+    --ghost: #cfc8bf;
+    --knot: #221f1c;
+    --extra: #7c4fd0;
+    --extra-dim: #a98ede;
+    --now: #2f9e63;
+    --now-dim: #79bf9b;
+    --desk: #e3d8c8;
+    --desk-edge: #c9bba7;
+    --case: #f0ece5;
+    --case-edge: #c4bcb0;
+    --screen: #2a2622;
+  }
+}
+
+body.compact {
+  --font: 12px;
+  --brand-size: 17px;
+  --heading-size: 21px;
+  --readout-size: 26px;
+  --value-size: 14px;
+  --btn-pad: 6px 16px;
+  --pri-pad: 7px 18px;
+  --nav-pad: 6px 14px;
+  --field-pad: 5px 12px;
+  --card-radius: 12px;
+  --field-radius: 10px;
+  --graph-min: 130px;
+  --desk-min: 130px;
+  --margin: 14px;
+  --spacing: 9px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: var(--font);
+  /* A desktop app is not a document: dragging a selection across it is noise. */
+  user-select: none;
+  cursor: default;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---- sidebar ---- */
+
+#sidebar {
+  flex: 0 0 168px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px 12px;
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+}
+
+#brand {
+  margin: 0 0 14px;
+  padding-left: 8px;
+  font-family: var(--serif);
+  font-size: var(--brand-size);
+  font-weight: normal;
+}
+
+.nav {
+  padding: var(--nav-pad);
+  text-align: left;
+  font: inherit;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.nav:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.nav[aria-current="page"] {
+  background: var(--sel);
+  border-color: var(--sel-border);
+  color: var(--text);
+}
+
+/* ---- pages ---- */
+
+/* The page scrolls, so the *window* is free to be dragged shorter than its
+   contents -- what QScrollArea was doing in the Qt build. */
+main {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing);
+  padding: var(--margin);
+  min-height: 100%;
+}
+
+.page > header h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: var(--heading-size);
+  font-weight: normal;
+}
+
+.sub {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.group {
+  margin: 0;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+}
+
+/* Only the graph cards should soak up leftover height. */
+.card.grow,
+.page > .card.grow {
+  flex: 1;
+  min-height: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.row.grow > input[type="range"] {
+  flex: 1;
+}
+
+.unit {
+  color: var(--muted);
+}
+
+#readout {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: var(--readout-size);
+  color: var(--accent);
+}
+
+.value {
+  font-size: var(--value-size);
+  font-weight: 600;
+  color: var(--accent);
+  min-width: 3.5em;
+  text-align: right;
+}
+
+.steps {
+  margin: 0;
+  padding-left: 1.2em;
+}
+.steps li {
+  margin: 4px 0;
+}
+
+.desk {
+  width: 100%;
+  min-height: var(--desk-min);
+  max-height: 40vh;
+}
+
+.graph {
+  width: 100%;
+  flex: 1;
+  min-height: var(--graph-min);
+  border-radius: 8px;
+}
+
+/* ---- buttons ---- */
+
+button {
+  font: inherit;
+  padding: var(--btn-pad);
+  color: var(--text);
+  background: var(--button);
+  border: 1px solid var(--button-border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+button:hover:not(:disabled) {
+  background: var(--button-hover);
+  border-color: var(--border-hi);
+}
+button:active:not(:disabled) {
+  background: var(--button-press);
+}
+button:disabled {
+  color: var(--faint);
+  background: var(--button-off);
+  border-color: var(--border);
+  cursor: default;
+}
+
+button.primary {
+  padding: var(--pri-pad);
+  font-weight: 600;
+  color: var(--accent-fg);
+  background: var(--accent);
+  border: none;
+}
+button.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+button.primary:active:not(:disabled) {
+  background: var(--accent-press);
+}
+button.primary:disabled {
+  color: var(--accent-off-fg);
+  background: var(--accent-off);
+}
+
+/* ---- inputs ---- */
+
+select,
+input[type="number"] {
+  font: inherit;
+  padding: var(--field-pad);
+  min-width: 92px;
+  color: var(--text);
+  background: var(--field);
+  border: 1px solid var(--button-border);
+  border-radius: var(--field-radius);
+}
+select:hover,
+input[type="number"]:hover {
+  border-color: var(--border-hi);
+}
+
+label {
+  color: var(--text);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 0;
+  cursor: pointer;
+}
+.check input {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: none;
+  cursor: pointer;
+}
+.check:has(input:disabled) {
+  color: var(--faint);
+  cursor: default;
+}
+
+input[type="range"] {
+  accent-color: var(--accent);
+  height: 16px;
+  cursor: pointer;
+}
+
+progress {
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border: none;
+  border-radius: 4px;
+  background: var(--button);
+}
+progress::-webkit-progress-bar {
+  background: var(--button);
+  border-radius: 4px;
+}
+progress::-webkit-progress-value {
+  background: var(--accent);
+  border-radius: 4px;
+}
+
+/* ---- calibration square ---- */
+
+/* Black and white are the measurement, not decoration: they must be the real
+   thing in both themes, never a themed near-black. */
+#cal-square {
+  align-self: center;
+  width: 260px;
+  height: 260px;
+  border-radius: 6px;
+  background: #000;
+}
+#cal-square.white {
+  background: #fff;
+}
+
+/* ---- scrollbar ---- */
+
+main::-webkit-scrollbar {
+  width: 10px;
+}
+main::-webkit-scrollbar-thumb {
+  background: var(--border-hi);
+  border-radius: 5px;
+}
+main::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}

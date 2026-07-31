@@ -1,0 +1,266 @@
+<!doctype html>
+<!--
+  SPDX-License-Identifier: GPL-3.0-or-later
+  Copyright (C) 2026 Tath Sikdar
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- No remote anything: this window only ever loads its own files. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:"
+    />
+    <title>open-lux</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <nav id="sidebar">
+      <h1 id="brand">open-lux</h1>
+      <button class="nav" data-page="home" aria-current="page">Home</button>
+      <button class="nav" data-page="calibrate">Calibrate</button>
+      <button class="nav" data-page="extradim">ExtraDim</button>
+      <button class="nav" data-page="settings">Settings</button>
+    </nav>
+
+    <main>
+      <!-- ---- Home ---- -->
+      <section id="page-home" class="page">
+        <header><h2>Home</h2></header>
+
+        <div class="card">
+          <!-- desk.py, as markup. Same fixed 320x180 space, scaled by the
+               viewBox instead of by a QPainter transform. -->
+          <svg
+            class="desk"
+            viewBox="0 0 320 180"
+            role="img"
+            aria-label="A desk with a lit monitor, speakers and a tower PC"
+          >
+            <g fill="none" stroke-width="1.2">
+              <path d="M8 168 H312" stroke="var(--desk-edge)" />
+              <g fill="var(--desk-edge)" stroke="none">
+                <rect x="24" y="120" width="8" height="48" />
+                <rect x="288" y="120" width="8" height="48" />
+              </g>
+              <rect x="18" y="110" width="284" height="10" rx="3"
+                    fill="var(--desk)" stroke="var(--desk-edge)" />
+
+              <!-- tower PC, on the floor under the desk -->
+              <rect x="36" y="122" width="34" height="46" rx="3"
+                    fill="var(--case)" stroke="var(--case-edge)" />
+              <path d="M43 130 H63 M43 135 H63 M43 140 H63" stroke="var(--desk-edge)" />
+              <circle cx="53" cy="160" r="2.2" fill="var(--accent)" stroke="none" />
+
+              <!-- bookshelf speakers, flanking the monitor -->
+              <g fill="var(--case)" stroke="var(--case-edge)">
+                <rect x="60" y="56" width="28" height="54" rx="2" />
+                <rect x="232" y="56" width="28" height="54" rx="2" />
+              </g>
+              <g fill="var(--screen)" stroke="var(--case-edge)">
+                <circle cx="74" cy="84" r="9" /><circle cx="74" cy="66" r="4" />
+                <circle cx="246" cy="84" r="9" /><circle cx="246" cy="66" r="4" />
+              </g>
+              <g fill="var(--case-edge)" stroke="none">
+                <circle cx="74" cy="84" r="3" /><circle cx="246" cy="84" r="3" />
+              </g>
+
+              <!-- monitor: bezel, lit panel, neck, base -->
+              <rect x="108" y="28" width="104" height="62" rx="3"
+                    fill="var(--case)" stroke="var(--case-edge)" />
+              <rect x="112" y="32" width="96" height="54" rx="2"
+                    fill="var(--screen)" stroke="none" />
+              <!-- the panel is on: this app is about how brightly -->
+              <rect x="116" y="36" width="88" height="46" rx="2"
+                    fill="var(--accent)" opacity="0.2" stroke="none" />
+              <rect x="153" y="90" width="14" height="12"
+                    fill="var(--case-edge)" stroke="none" />
+              <rect x="136" y="102" width="48" height="8" rx="2"
+                    fill="var(--case)" stroke="var(--case-edge)" />
+
+              <!-- keyboard and mouse: the overlap is the only depth cue here -->
+              <rect x="116" y="106" width="88" height="12" rx="3"
+                    fill="var(--case)" stroke="var(--case-edge)" />
+              <path
+                stroke="var(--case-edge)"
+                stroke-width="1"
+                d="M121 110h4M127.4 110h4M133.8 110h4M140.2 110h4M146.6 110h4M153 110h4M159.4 110h4M165.8 110h4M172.2 110h4M178.6 110h4M185 110h4M191.4 110h4M197.8 110h4M121 114h4M127.4 114h4M133.8 114h4M140.2 114h4M146.6 114h4M153 114h4M159.4 114h4M165.8 114h4M172.2 114h4M178.6 114h4M185 114h4M191.4 114h4M197.8 114h4"
+              />
+              <rect x="212" y="106" width="16" height="12" rx="5"
+                    fill="var(--case)" stroke="var(--case-edge)" />
+            </g>
+          </svg>
+        </div>
+
+        <div class="card">
+          <p id="readout">--</p>
+          <p id="status" class="sub">Waiting for sensor</p>
+        </div>
+
+        <div class="card" id="sliders"></div>
+
+        <div class="card">
+          <label class="check">
+            <input type="checkbox" id="home-extradim" />
+            <span>ExtraDim &ndash; keep dimming with contrast below 0% brightness</span>
+          </label>
+        </div>
+      </section>
+
+      <!-- ---- Calibrate ---- -->
+      <section id="page-calibrate" class="page" hidden>
+        <header>
+          <h2>Calibrate</h2>
+          <p class="sub">
+            Measures what this display actually emits, so ambient light can be
+            matched to it.
+          </p>
+        </header>
+
+        <div class="card">
+          <div class="row">
+            <label for="cal-display">Display</label>
+            <select id="cal-display"></select>
+            <label for="cal-contrast">Contrast</label>
+            <input type="number" id="cal-contrast" min="0" max="100" step="1" />
+          </div>
+          <ol class="sub steps">
+            <li>Drag this window onto the display you want to calibrate.</li>
+            <li>Hold the LDR flat against the white square below, covering it.</li>
+            <li>
+              Press Ready. The display sweeps its whole range &ndash; leave it
+              alone and keep the room's lighting steady until it finishes
+              (~3&nbsp;min).
+            </li>
+          </ol>
+        </div>
+
+        <div id="cal-square" aria-hidden="true"></div>
+
+        <button id="cal-button" class="primary">Ready to calibrate</button>
+        <progress id="cal-bar" max="100" value="0" hidden></progress>
+        <p id="cal-progress" class="sub"></p>
+      </section>
+
+      <!-- ---- ExtraDim ---- -->
+      <section id="page-extradim" class="page" hidden>
+        <header>
+          <h2>ExtraDim</h2>
+          <p class="sub">
+            Once brightness hits 0% the display can still go darker by dropping
+            contrast. The purple stretch of the curve is where that happens.
+          </p>
+        </header>
+
+        <div class="card">
+          <label class="check">
+            <input type="checkbox" id="xd-enable" />
+            <span>Enable ExtraDim</span>
+          </label>
+        </div>
+
+        <div class="card">
+          <div class="row">
+            <label for="xd-display">Preview display</label>
+            <select id="xd-display"></select>
+          </div>
+          <div class="row grow">
+            <label for="xd-min">Minimum contrast</label>
+            <input type="range" id="xd-min" min="0" max="100" step="1" />
+            <output id="xd-min-value" class="value">--</output>
+          </div>
+          <p id="xd-floor" class="sub"></p>
+        </div>
+
+        <div class="card grow">
+          <canvas id="xd-graph" class="graph"></canvas>
+        </div>
+      </section>
+
+      <!-- ---- Settings ---- -->
+      <section id="page-settings" class="page" hidden>
+        <header><h2>Settings</h2></header>
+
+        <div class="card">
+          <p class="group">Home screen</p>
+          <label class="check">
+            <input type="radio" name="knob" id="knob-one" />
+            <span>One knob for every display</span>
+          </label>
+          <label class="check">
+            <input type="radio" name="knob" id="knob-each" />
+            <span>A knob per display</span>
+          </label>
+        </div>
+
+        <div class="card">
+          <p class="group">Appearance</p>
+          <div class="row">
+            <label for="set-theme">Theme</label>
+            <select id="set-theme">
+              <option value="system">Follow system</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </div>
+          <label class="check">
+            <input type="checkbox" id="set-compact" />
+            <span>Compact layout &ndash; tighter spacing for a short window</span>
+          </label>
+        </div>
+
+        <div class="card">
+          <p class="group">Learning</p>
+          <label class="check">
+            <input type="checkbox" id="set-autolearn" />
+            <span>Learn the brightness I pick over time</span>
+          </label>
+          <label class="check">
+            <input type="radio" name="learn" id="learn-avg" />
+            <span>Learn from the average of both displays</span>
+          </label>
+          <label class="check">
+            <input type="radio" name="learn" id="learn-each" />
+            <span>Learn each display separately</span>
+          </label>
+        </div>
+
+        <div class="card grow">
+          <p class="group">Response curve &ndash; drag a point to change it</p>
+          <canvas id="set-graph" class="graph"></canvas>
+          <div class="row">
+            <button id="curve-save" class="primary" disabled>Save curve</button>
+            <button id="curve-reset">Reset curve</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <p class="group">Sensor</p>
+          <div class="row">
+            <label for="set-port">Serial port</label>
+            <select id="set-port"></select>
+          </div>
+          <div class="row">
+            <label for="set-rfixed">Divider</label>
+            <input type="number" id="set-rfixed" min="100" max="1000000" step="10" />
+            <span class="unit">ohm</span>
+            <input type="number" id="set-r10" min="100" max="1000000" step="10" />
+            <span class="unit">ohm @10lx</span>
+            <input type="number" id="set-gamma" min="0.1" max="2" step="0.05" />
+            <span class="unit">gamma</span>
+          </div>
+          <label class="check">
+            <input type="checkbox" id="set-tovcc" />
+            <span>LDR on the VCC side of the divider</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="set-minimized" />
+            <span>Start minimised to the tray</span>
+          </label>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="renderer.js"></script>
+  </body>
+</html>
