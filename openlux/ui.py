@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QPointF, QRectF, QSize
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -48,19 +48,37 @@ from .hardware import (
 OVERRIDE_RELEASE = 0.08
 
 
-def app_icon():
-    """Painted, not shipped -- a 64px file would be one more thing to package."""
-    pm = QPixmap(64, 64)
+def draw_icon(size=256):
+    """A brightness glyph on a dark tile: readable on a light or dark taskbar.
+
+    packaging/make_icons.py renders this to the .png and .ico that the
+    installers use, so the drawing stays the single source of truth.
+    """
+    pm = QPixmap(size, size)
     pm.fill(Qt.transparent)
     p = QPainter(pm)
     p.setRenderHint(QPainter.Antialiasing)
     p.setPen(Qt.NoPen)
-    p.setBrush(QColor("#5aa9ff"))
-    p.drawEllipse(8, 8, 48, 48)
-    p.setBrush(QColor("#16181d"))
-    p.drawEllipse(20, 20, 24, 24)
+
+    u = size / 256.0
+    p.setBrush(QColor("#121213"))
+    p.drawRoundedRect(QRectF(0, 0, size, size), 56 * u, 56 * u)
+
+    p.setBrush(QColor("#e8752c"))
+    p.drawEllipse(QPointF(size / 2, size / 2), 46 * u, 46 * u)
+
+    p.translate(size / 2, size / 2)
+    for _ in range(8):
+        p.drawRoundedRect(QRectF(-7 * u, -100 * u, 14 * u, 30 * u), 7 * u, 7 * u)
+        p.rotate(45)
     p.end()
-    return QIcon(pm)
+    return pm
+
+
+def app_icon():
+    """The packaged PNG, falling back to drawing it in a source checkout."""
+    png = Path(__file__).with_name("icon.png")
+    return QIcon(str(png)) if png.exists() else QIcon(draw_icon())
 
 
 def heading(text, sub=None):

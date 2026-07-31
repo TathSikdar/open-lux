@@ -63,6 +63,27 @@ whole design rests on: the app only touches monitors it has actually measured.
 at whatever the display was calibrated at. Using it as a general dimming knob
 would wreck the calibration tables' meaning.
 
+## Packaging
+
+Everything under `packaging/` builds the distributable app:
+
+```
+pyinstaller --noconfirm packaging/openlux.spec   # -> dist/openlux/
+iscc packaging/openlux.iss                        # Windows installer
+python packaging/make_icons.py                    # regenerate the icon files
+python packaging/make_screenshots.py              # regenerate the README images
+```
+
+The icon is *drawn* in `openlux.ui.draw_icon` and rendered to files by
+`make_icons.py`, so change the drawing and re-run the script — don't edit the
+PNG or the ICO by hand. Same for the screenshots: they come from the real
+window driven by a simulated sensor, so regenerate them rather than cropping a
+manual screen capture.
+
+Releases are cut by pushing a `v*` tag; the workflow builds both platforms and
+attaches them. The version in `pyproject.toml` is the source of truth, and the
+installer takes its version from the tag.
+
 ## Hardware notes
 
 The Arduino sketch is intentionally almost empty — it reports a raw ADC value

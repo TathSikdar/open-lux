@@ -1,0 +1,12 @@
+* text=auto
+
+# Must be LF whatever platform commits them: a CRLF shebang gives you
+# "bad interpreter: no such file or directory" on Linux.
+*.sh text eol=lf
+*.desktop text eol=lf
+
+# Inno Setup is happiest with CRLF.
+*.iss text eol=crlf
+
+*.png binary
+*.ico binary
