@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { N_CONTRAST, calibrationOf, withDefaults } from '../src/core.js';
-import { CalibrationRun, identifyDisplay } from '../src/hardware.js';
+import { CalibrationRun, identifyDisplay, retry } from '../src/hardware.js';
 import { Controller } from '../src/controller.js';
 
 const ROOM = 40.0; // ambient light reaching the sensor around the LDR
@@ -141,6 +141,30 @@ test('identify blinks the panel and puts the brightness back', async () => {
   // A blink that does not swing the whole range is invisible on a dim panel.
   assert.deepEqual(seen, [0, 100, 0, 100, 75]);
   assert.equal(panel.b, 75, 'identify must leave the display where it found it');
+});
+
+test('a flaky DDC link is retried, a dead one still gives up', async () => {
+  // A marginal monitor drops most requests and answers on a later attempt.
+  let calls = 0;
+  const flaky = () => {
+    if (++calls < 8) throw new Error('I2C bus error');
+    return 42;
+  };
+  assert.equal(await retry(flaky, 15, 0), 42);
+  assert.equal(calls, 8, 'and it must stop retrying once one succeeds');
+
+  // A genuinely absent code must still surface, not spin forever.
+  calls = 0;
+  await assert.rejects(
+    () =>
+      retry(() => {
+        calls++;
+        throw new Error('unsupported');
+      }, 4, 0),
+    /unsupported/,
+    'the last error is what the caller sees',
+  );
+  assert.equal(calls, 4, 'tries means tries, not tries + 1');
 });
 
 // --- the control loop -------------------------------------------------------

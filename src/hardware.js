@@ -199,15 +199,43 @@ export async function enumerateDisplays() {
   return out;
 }
 
+/**
+ * DDC/CI over I2C is not a reliable link, and a marginal monitor is the normal
+ * case rather than a broken one -- a long cable, a KVM, or a cheap scaler is
+ * enough. Such a panel drops most requests and reports a *different* error each
+ * time ("invalid value in its command field", "error transmitting on the I2C
+ * bus"), which reads like an unsupported feature but is not: the same code
+ * answers fine on the next attempt.
+ *
+ * Measured on a SAM7089 that failed calibration: 7/15 bare reads succeeded,
+ * 24/25 through this. The HP beside it was 15/15 either way, so the cost is
+ * paid only by the display that needs it.
+ *
+ * Retrying a set is safe -- writing the same VCP value twice is idempotent.
+ *
+ * ponytail: fixed count, no backoff. The drops are not congestion; wider gaps
+ * (50-200ms) measured no better than 25ms.
+ */
+export async function retry(fn, tries = 15, gap = 25) {
+  for (let i = 1; ; i++) {
+    try {
+      return fn();
+    } catch (e) {
+      if (i >= tries) throw e;
+      await sleep(gap);
+    }
+  }
+}
+
 /** A live handle to one display. All four calls are async and may throw. */
 export function openDisplay(info) {
   if (process.platform === 'win32') {
     const d = ddcci();
     return {
-      getLuminance: async () => d.getBrightness(info.id),
-      setLuminance: async (v) => d.setBrightness(info.id, Math.round(v)),
-      getContrast: async () => d.getContrast(info.id),
-      setContrast: async (v) => d.setContrast(info.id, Math.round(v)),
+      getLuminance: () => retry(() => d.getBrightness(info.id)),
+      setLuminance: (v) => retry(() => d.setBrightness(info.id, Math.round(v))),
+      getContrast: () => retry(() => d.getContrast(info.id)),
+      setContrast: (v) => retry(() => d.setContrast(info.id, Math.round(v))),
     };
   }
 
