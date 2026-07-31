@@ -1,6 +1,6 @@
 {
   "name": "open-lux",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Ambient-light driven brightness for DDC/CI monitors, with a measured per-display calibration",
   "license": "GPL-3.0-or-later",
   "author": "Tath Sikdar <rikisikdar1@gmail.com>",
