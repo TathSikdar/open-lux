@@ -8,14 +8,19 @@ welcome. The project is small; there is no ceremony.
 ```
 git clone https://github.com/TathSikdar/open-lux.git
 cd open-lux
-pip install -e ".[dev]"
-pytest
+npm install
+npm test
 ```
 
-You do not need the hardware to work on most of this. `openlux --fake` runs the
+You do not need the hardware to work on most of this. `npm run fake` runs the
 whole app against a simulated light sensor, and the test suite drives a
 simulated panel, so calibration, learning and the graphs can all be exercised
 on a laptop with nothing plugged in.
+
+On Windows, `npm install` compiles the DDC/CI binding and so wants the *Desktop
+development with C++* workload from Visual Studio. Without it the build is
+skipped and the app reports *No DDC/CI displays detected* — which is fine for
+working on anything but the DDC layer itself.
 
 ## Reporting a bug
 
@@ -31,14 +36,14 @@ the issue helps a lot.
 
 ## Making a change
 
-- **Run `pytest` before opening a PR.** CI runs it on Windows and Linux, for
-  Python 3.9 and 3.13.
-- **If you change the maths, add a case to `tests/test_core.py`.** That file
-  imports no Qt and has no framework — plain `assert`s, and every function
-  starting with `test_` runs. Keep it that way.
-- **If you change the calibration sweep or the window wiring, check
-  `tests/test_calibration.py` still passes.** It drives the real
-  `CalibrationWorker` and the real `MainWindow` against a simulated panel. It
+- **Run `npm test` before opening a PR.** CI runs it on Windows and Linux, for
+  Node 22 and 24.
+- **If you change the maths, add a case to `test/core.test.js`.** It uses
+  `node:test` and `node:assert` — no framework to install, no config. Keep it
+  that way.
+- **If you change the calibration sweep or the control loop, check
+  `test/calibration.test.js` still passes.** It drives the real
+  `CalibrationRun` and the real `Controller` against a simulated panel. It
   already caught one genuine bug (a baseline measured at the wrong brightness),
   which is the reason it exists.
 - **Match the surrounding style.** Comments explain *why*, not what. There is
@@ -46,14 +51,16 @@ the issue helps a lot.
 
 ## Things worth knowing before you change them
 
-**`core.py` imports no Qt, deliberately.** All the maths — lux conversion, the
-curve, table inversion, learning — lives there so it can be tested without a
-display server. Please don't reach for `PySide6` in it.
+**`core.js` and `controller.js` import nothing at all, deliberately.** Not
+electron, not even node. All the maths — lux conversion, the curve, table
+inversion, learning — plus the control loop live there so they can be tested
+under bare `node --test`, and so the main process and the renderer can load the
+same file. Please don't reach for `electron` or `node:` in either.
 
 **Calibration tables are measurements, not settings.** If you change what a
 sweep records or how it's indexed, existing users' `config.json` files become
 wrong rather than merely outdated, and they'll have to recalibrate every
-display. Bump the shape constants in `core.py` and handle the old format, or
+display. Bump the shape constants in `core.js` and handle the old format, or
 say so loudly in the PR.
 
 **An uncalibrated display must never be written to.** That's the one rule the
@@ -65,24 +72,18 @@ would wreck the calibration tables' meaning.
 
 ## Packaging
 
-Everything under `packaging/` builds the distributable app:
+`electron-builder` builds the distributable app, configured by the `build` key
+in `package.json`:
 
 ```
-pyinstaller --noconfirm packaging/openlux.spec   # -> dist/openlux/
-iscc packaging/openlux.iss                        # Windows installer
-python packaging/make_icons.py                    # regenerate the icon files
-python packaging/make_screenshots.py              # regenerate the README images
+npx electron-builder        # -> dist/  (NSIS installer, or an AppImage)
 ```
-
-The icon is *drawn* in `openlux.ui.draw_icon` and rendered to files by
-`make_icons.py`, so change the drawing and re-run the script — don't edit the
-PNG or the ICO by hand. Same for the screenshots: they come from the real
-window driven by a simulated sensor, so regenerate them rather than cropping a
-manual screen capture.
 
 Releases are cut by pushing a `v*` tag; the workflow builds both platforms and
-attaches them. The version in `pyproject.toml` is the source of truth, and the
-installer takes its version from the tag.
+attaches them. `version` in `package.json` is the source of truth — the
+workflow refuses to build if the tag disagrees with it, because
+electron-builder reads the version from there and would otherwise ship a
+mislabelled installer.
 
 ## Hardware notes
 
@@ -92,13 +93,13 @@ is something the user has to reflash to change, which is exactly the problem the
 current design exists to fix.
 
 If you're adding support for a different sensor, the conversion belongs in
-`adc_to_lux()` in `core.py`, with its constants exposed in Settings.
+`adcToLux()` in `core.js`, with its constants exposed in Settings.
 
 ## Licence
 
 open-lux is GPL-3.0-or-later. By contributing you agree your work ships under
 the same licence. New files should carry the SPDX header the existing ones do:
 
-```python
-# SPDX-License-Identifier: GPL-3.0-or-later
+```js
+// SPDX-License-Identifier: GPL-3.0-or-later
 ```

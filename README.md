@@ -55,25 +55,24 @@ behaviour.
 installs per-user, so there is no administrator prompt, and it offers to start
 open-lux when you sign in.
 
-**Linux** — download and extract `open-lux-linux-x86_64.tar.gz`, then:
+**Linux** — download `open-lux-x.y.z.AppImage`, make it executable and run it:
 
 ```sh
-cd openlux
-./install-linux.sh
+chmod +x open-lux-*.AppImage
+./open-lux-*.AppImage
 ```
 
-Installs to `~/.local/opt/openlux` with a menu entry, touches nothing outside
-your home directory, and offers autostart. `./install-linux.sh --uninstall`
-reverses it.
+DDC/CI on Linux goes through `ddcutil`, so install it and make sure your user
+can reach `/dev/i2c-*` (usually by joining the `i2c` group).
 
-**From source** — needs Python 3.9+:
+**From source** — needs Node 22+:
 
 ```sh
-pip install .
-openlux
+npm install
+npm start
 ```
 
-Neither packaged build needs Python installed.
+Neither packaged build needs Node installed.
 
 ---
 
@@ -266,12 +265,6 @@ guessed at.
 
 ## Development
 
-> **The app is being rewritten on Electron** (branch `rewrite/electron`). Both
-> stacks are in the tree while the Electron build is verified against real
-> hardware; the Python one below is still what the released installers ship.
-
-### Electron (the rewrite)
-
 ```sh
 npm install
 npm test          # node:test -- no electron, no display, no hardware
@@ -289,6 +282,9 @@ reach `/dev/i2c-*`.
 
 ```
 open-lux/
+├── firmware/
+│   └── firmware.ino    Arduino sketch (the name has to match its folder -
+│                       that is the IDE's rule, not ours)
 ├── src/
 │   ├── core.js         lux maths, curve, calibration tables, learning
 │   ├── controller.js   the control loop: reading in, brightness/contrast out
@@ -299,7 +295,8 @@ open-lux/
 │   ├── renderer.js     the four screens
 │   ├── index.html      markup, incl. the Home-screen desk illustration as SVG
 │   └── style.css       the palette, as custom properties
-└── test/
+├── test/
+└── docs/
 ```
 
 `core.js` and `controller.js` import nothing at all — not electron, not node —
@@ -312,50 +309,16 @@ The palette lives only in `style.css`: `graph.js` reads the same custom
 properties with `getComputedStyle`, and Electron's `nativeTheme.themeSource`
 drives `prefers-color-scheme`, so *Follow system* needs no code.
 
-### Python / Qt (what the installers currently ship)
-
-```sh
-pip install -e ".[dev]"
-pytest
-```
-
-`tests/test_core.py` covers the lux maths, the curve, table inversion and
-learning. `tests/test_calibration.py` drives the real sweep and the real window
-against a simulated panel, so the three-minute calibration and the DDC writes
-are exercised without hardware. On a headless machine set
-`QT_QPA_PLATFORM=offscreen`.
-
-```
-open-lux/
-├── firmware/
-│   └── firmware.ino            Arduino sketch (the name has to match its
-│                               folder - that is the IDE's rule, not ours)
-├── openlux/
-│   ├── core.py                 lux maths, curve, calibration tables, learning
-│   ├── hardware.py             serial reader, DDC writer, calibration sweep
-│   ├── curve.py                the drag-editable graph widget
-│   ├── desk.py                 the painted Home-screen illustration
-│   ├── ui.py                   window, tray, the four screens
-│   ├── theme.py                light/dark and roomy/compact palettes
-│   └── style.qss               the stylesheet theme.py fills in
-├── packaging/                  PyInstaller spec, installers, icon/screenshot tools
-├── tests/
-└── docs/
-```
-
-`core.py` imports no Qt, which is what lets the maths be tested on its own.
-
 **Building the packaged app:**
 
 ```sh
-pip install pyinstaller
-pyinstaller --noconfirm packaging/openlux.spec   # -> dist/openlux/
-iscc packaging/openlux.iss                       # Windows installer (Inno Setup)
+npx electron-builder        # -> dist/  (NSIS installer, or an AppImage)
 ```
 
-Tagging a commit `v*` builds both and attaches them to a GitHub Release.
-`packaging/make_icons.py` and `packaging/make_screenshots.py` regenerate the
-icon and the images in this README.
+Tagging a commit `v*` builds both and attaches them to a GitHub Release. The
+tag has to match `version` in `package.json` or the workflow stops, since
+electron-builder takes the version from there and would otherwise ship a
+mislabelled installer.
 
 ## Limits
 

@@ -6,13 +6,14 @@
  * Warm near-black rather than the usual blue-tinted dark, one orange accent,
  * pill buttons, and a serif for display type against a sans body.
  *
- * The Qt build needed theme.py to hold this palette as a dict, style.qss as a
- * $token template, and load_style() to substitute one into the other -- because
- * QSS has no variables and the hand-painted widgets could not read a
- * stylesheet. Custom properties do all three jobs, and graph.js reads the same
- * tokens with getComputedStyle, so the two halves of the UI still cannot drift
- * apart. Electron's nativeTheme.themeSource drives prefers-color-scheme, so
- * "Follow system" needs no code at all.
+ * This file is the only place the palette lives. graph.js reads the same tokens
+ * with getComputedStyle, so the painted half of the UI and the styled half
+ * cannot drift apart, and Electron's nativeTheme.themeSource drives
+ * prefers-color-scheme, so "Follow system" needs no code at all.
+ *
+ * (The Qt build this replaced needed three files and a substitution pass to
+ * manage the same palette, because QSS has no variables and the hand-painted
+ * widgets could not read a stylesheet.)
  */
 
 :root {
