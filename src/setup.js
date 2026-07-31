@@ -42,6 +42,16 @@ let running = false;
 /** @type {boolean} set once the sensor has ever reported in, this session. */
 let sensorSeen = false;
 
+/**
+ * A sweep finished and the wizard is waiting to be told the display list agrees.
+ *
+ * main.js sends 'calibrate:done' before the `state` push that marks the display
+ * calibrated, so the moment the sweep ends `pending()` still counts it. Rather
+ * than guess, the wizard notes that a sweep landed and lets the next push
+ * decide whether anything is left to measure.
+ */
+let sweptSomething = false;
+
 const open = () => !$('setup').hidden;
 const step = () => steps[at] ?? 'done';
 
@@ -67,7 +77,10 @@ function renderDots() {
 function renderCalibrate() {
   const next = pending()[0];
 
-  $('setup-cal-drag').hidden = !next;
+  // Nothing left to measure: the instructions describe a sweep that is not
+  // going to happen, so they go with it and only the outcome line is left.
+  $('setup-cal-intro').hidden = !next;
+  $('setup-cal-card').hidden = !next;
   $('setup-square').hidden = !next;
 
   if (!next) {
@@ -165,6 +178,7 @@ const handlers = {
     $('setup-cal-status').textContent =
       `Measured ${minLux.toFixed(1)} - ${maxLux.toFixed(0)} lux` +
       (hasContrast ? `, down to ${floor.toFixed(1)} with ExtraDim.` : '.');
+    sweptSomething = true;
     stopped();
   },
 
@@ -217,6 +231,7 @@ export function start() {
   steps = ['welcome', ...(sensorSeen ? [] : ['hardware']), 'calibrate', 'done'];
   at = 0;
   running = false;
+  sweptSomething = false;
   skipped.clear();
   $('setup').hidden = false;
   $('setup-cal-status').textContent = '';
@@ -227,6 +242,14 @@ export function start() {
 /** @param {!Object} next */
 export function state(next) {
   snapshot = next;
+
+  // The last display just finished, so the step has nothing left to offer.
+  // Only after a sweep this run: re-opening the wizard with everything already
+  // calibrated must still stop here, or there is no way back in to redo one.
+  if (sweptSomething && open() && !running && step() === 'calibrate' && !pending().length) {
+    sweptSomething = false;
+    return advance();
+  }
   render();
 }
 

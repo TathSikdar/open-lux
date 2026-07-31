@@ -1,0 +1,23 @@
+<!--
+  SPDX-License-Identifier: GPL-3.0-or-later
+  Copyright (C) 2026 Tath Sikdar
+
+  The app icon. Colours are literals rather than the custom properties in
+  style.css, because this file is also rasterised to icon.png / icon.ico for
+  the window, the tray and the installer, where no stylesheet is in scope.
+  They are the dark palette's background and accent, kept in step by hand.
+  (No double hyphens in here: an XML comment may not contain them, and an
+  SVG that will not parse is one an img tag silently refuses to decode.)
+
+  Drawn in a 256x256 box with the star on a rounded plate, so it still reads
+  at 16x16 in the tray: points blunter than a true pentagram (inner radius
+  0.45 of outer, not 0.382) and no detail inside the silhouette.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <rect width="256" height="256" rx="56" fill="#0c0c0d" />
+  <polygon
+    points="128.0,50.0 148.9,99.3 202.2,103.9 161.8,139.0 173.8,191.1 128.0,163.5
+            82.2,191.1 94.2,139.0 53.8,103.9 107.1,99.3"
+    fill="#e8752c"
+  />
+</svg>

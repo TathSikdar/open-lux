@@ -12,6 +12,9 @@
       content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:"
     />
     <title>open-lux</title>
+    <!-- The same star as the window, tray and installer icons; those are
+         rasterised from this file by tools/icon.cjs. -->
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -413,14 +416,14 @@
         <!-- calibrate -->
         <section id="step-calibrate" class="step" hidden>
           <h2 id="setup-cal-title">Calibrate your display</h2>
-          <p class="sub">
+          <p id="setup-cal-intro" class="sub">
             open-lux is about to sweep this monitor through its whole range and
             measure the light coming off it. It takes about a minute.
           </p>
 
-          <div class="card">
+          <div id="setup-cal-card" class="card">
             <ol class="sub steps">
-              <li id="setup-cal-drag">
+              <li>
                 Drag the open-lux window onto <b id="setup-cal-name">this display</b>.
                 Not sure which monitor that is? Press <b>Identify</b> below and
                 it will blink.
