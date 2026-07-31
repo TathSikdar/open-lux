@@ -1,23 +1,49 @@
+<div align="center">
+
+<img src="src/icon.svg" width="96" alt="">
+
 # open-lux
+
+**Your monitors, as bright as the room actually is.**
+
+Automatic brightness from a real light sensor, for DDC/CI displays
+(HDMI & DisplayPort) — on Windows and Linux.
 
 [![CI](https://github.com/TathSikdar/open-lux/actions/workflows/ci.yml/badge.svg)](https://github.com/TathSikdar/open-lux/actions/workflows/ci.yml)
 [![Licence: GPL-3.0](https://img.shields.io/badge/licence-GPL--3.0-blue.svg)](LICENSE)
+[![Downloads](https://img.shields.io/github/downloads/TathSikdar/open-lux/total.svg)](https://github.com/TathSikdar/open-lux/releases)
 
-Automatic monitor brightness driven by a real light sensor, for DDC/CI displays
-(HDMI & DisplayPort) on **Windows and Linux**.
+<img src="docs/intro.gif" width="720" alt="open-lux opening and settling on the Home screen">
 
-An Arduino reports the ambient light level ten times a second, oversampled so
-the reading carries decimals rather than whole ADC counts. The app **measures**
-what each of your displays actually emits, then drives every calibrated display
-to match the room. Displays you have not calibrated are never touched.
+[**Download**](https://github.com/TathSikdar/open-lux/releases) ·
+[Build the sensor](#hardware) ·
+[Print the case](hardware/README.md) ·
+[How it works](#how-it-works)
 
-<img src="docs/screenshot-home.png" width="640" alt="The Home screen">
+</div>
+
+---
+
+Most desktop tools guess. They read a webcam, or a clock, or nothing at all,
+and then apply a curve someone else picked for a panel you do not own.
+
+open-lux **measures**. An Arduino reports the ambient level ten times a second,
+oversampled so the reading carries decimals rather than whole ADC counts. Then,
+once per monitor, the app sweeps the panel through its entire range with the
+sensor pressed to the glass and records what that display *actually emits* at
+every percent. One shared curve turns the room's light into a target, and each
+display inverts its own measured table to reach it.
+
+That is why two monitors with different maximum brightness end up looking the
+same — and why a display you have not calibrated is left alone rather than
+guessed at.
 
 ---
 
 ## Contents
 
 - [Hardware](#hardware)
+  - [Printed case](hardware/README.md)
 - [Install](#install)
 - [Using open-lux](#using-open-lux)
   - [1. First run](#1-first-run)
@@ -48,6 +74,11 @@ Then flash `firmware/firmware.ino`, setting `SENSOR_PIN` to the pin your
 divider feeds (`A7` by default). It sends nothing but the raw sensor reading —
 all the interpretation happens on the PC, so you never reflash to change
 behaviour.
+
+Loose on the desk works. If you would rather it looked like a finished thing,
+[**hardware/**](hardware/README.md) has the printable case — the sensor head
+that holds the LDR flat against the screen for calibration, and an enclosure
+for the board.
 
 ## Install
 
@@ -107,6 +138,12 @@ takes about a minute each. The wizard runs it for you the first time; after that
 it lives at the bottom of Settings, for a monitor you skipped or one you have
 moved.
 
+> **Calibrate in the dark.** Turn the room lights off and close the blinds
+> first. The LDR cannot tell the screen's light from the room's, so anything
+> the room contributes is baked into the display's measured table as if the
+> panel had emitted it — and every brightness decision afterwards is made from
+> that table. A lit room is the most common cause of a bad calibration.
+
 <img src="docs/screenshot-calibrate.png" width="640" alt="The Calibrate section of Settings">
 
 1. Go to **Settings ▸ Calibrate**, at the bottom of the page, and pick the
@@ -118,21 +155,24 @@ moved.
    physically on the display you are measuring.
 3. Set the contrast you normally use (50% is a sensible default). Everything
    the app does later is measured relative to this value.
-4. Hold the LDR flat against the square, covering it, so it sees the screen and
+4. **Turn the lights off.** The dashed square is where the sensor goes; it
+   only fills with black and white once the sweep starts.
+5. Hold the LDR flat against the square, covering it, so it sees the screen and
    as little of the room as possible. Tape or a bit of Blu Tack helps — your
    hand shaking is measurement noise.
-5. Press **Ready to calibrate** and leave it alone.
+6. Press **Ready to calibrate** and leave it alone.
 
-The square stays black briefly to measure a baseline, then turns white and
+The square goes black briefly to measure a baseline, then turns white and
 cycles through the panel's whole brightness range one percent at a time, then
-through its contrast range. Keep the room's lighting steady throughout —
-turning a lamp on halfway through will bend the results.
+through its contrast range. Keep the room dark throughout — turning a lamp on
+halfway through will bend the results.
 
 When it finishes you will see the range it measured, something like
 `Calibrated: 6.6 - 184 lux`. Repeat for every monitor you want controlled.
 
 **Recalibrate if** you move a monitor somewhere with different lighting, change
-its OSD picture mode, or swap the sensor hardware.
+its OSD picture mode, swap the sensor hardware — or if you calibrated with the
+lights on.
 
 ### 3. Everyday use
 
@@ -254,8 +294,9 @@ divider"* in Settings.
   cannot either.
 
 **Calibration produced a flat or nonsensical curve**
-Usually the sensor was not flat against the screen, or the room's light changed
-mid-sweep. The other big cause is the **monitor's own dynamic contrast** — many
+Usually the room was not dark, the sensor was not flat against the screen, or
+the light changed mid-sweep — redo it with the lights off. The other big cause
+is the **monitor's own dynamic contrast** — many
 panels have an "eco", "dynamic contrast" or "smart brightness" mode that
 adjusts the backlight on its own. That fights the measurement and then fights
 open-lux. Turn it off in the monitor's menu and calibrate again.
@@ -290,12 +331,10 @@ Arduino --oversampled ADC, 10 Hz--> lux --> smoothing
               brightness 42%            brightness 67%
 ```
 
-Calibration records what each display emits at every brightness percentage.
-One shared curve turns the room's light into a target luminance, and each
-display inverts **its own measured table** to hit it. That is why two monitors
-with different maximum brightness get different percentages and still end up
-looking the same — and why an uncalibrated display is left alone rather than
-guessed at.
+The smoothing is a single EMA on the lux reading, so the loop reacts to the
+room rather than to a cloud crossing the window. Everything downstream of it is
+a table lookup and a bisection — there is no PID, no model of the panel, and
+nothing that needs tuning once the sweep has run.
 
 ## Development
 

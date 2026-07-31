@@ -818,19 +818,29 @@ progress::-webkit-progress-value {
 
 /* ---- calibration square ---- */
 
-/* Black and white are the measurement, not decoration: they must be the real
-   thing in both themes, never a themed near-black. */
+/* Idle it is just a placeholder for the LDR, so it reads as an outline rather
+   than a slab of black sitting in the page. */
 #cal-square,
 #setup-square {
   align-self: center;
   width: 260px;
   height: 260px;
-  border-radius: 6px;
+  border-radius: var(--card-radius);
+  border: 2px dashed var(--border-hi);
+}
+
+/* Black and white are the measurement, not decoration: they must be the real
+   thing in both themes, never a themed near-black. The border keeps its width
+   and takes the fill colour so the whole 260px is the one shade. */
+#cal-square.black,
+#setup-square.black {
   background: #000;
+  border-color: #000;
 }
 #cal-square.white,
 #setup-square.white {
   background: #fff;
+  border-color: #fff;
 }
 #setup-square[hidden] {
   display: none;
