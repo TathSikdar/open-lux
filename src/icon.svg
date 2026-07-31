@@ -1,0 +1,29 @@
+<!--
+  SPDX-License-Identifier: GPL-3.0-or-later
+  Copyright (C) 2026 Tath Sikdar
+
+  The app icon. Colours are literals rather than the custom properties in
+  style.css, because this file is also rasterised to icon.png / icon.ico for
+  the window, the tray and the installer, where no stylesheet is in scope.
+  They are the dark palette's background and accent, kept in step by hand.
+  (No double hyphens in here: an XML comment may not contain them, and an
+  SVG that will not parse is one an img tag silently refuses to decode.)
+
+  Drawn in a 256x256 box as a desk lamp on a rounded plate, so it still reads
+  at 16x16 in the tray: flat silhouette, no detail inside it. Shade on top,
+  stem below it, base at the bottom. The stem starts at y 130, above the
+  shade's drooping bottom edge, so the two overlap instead of meeting on a
+  seam that would show a hairline gap once rounding lands them a pixel apart.
+
+  The lamp spans y 50 to 206, which centres its bounding box in the plate
+  with 50 units of air either side. Stem 22 wide and base 18 tall: anything
+  much thinner is under a pixel and a half at tray size and drops out.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <rect width="256" height="256" rx="56" fill="#0c0c0d" />
+  <g fill="#e8752c">
+    <path d="M96,50 H160 L200,124 Q128,142 56,124 Z" />
+    <rect x="117" y="130" width="22" height="58" />
+    <rect x="72" y="188" width="112" height="18" />
+  </g>
+</svg>

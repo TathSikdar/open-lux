@@ -1,11 +1,5 @@
-__pycache__/
-*.pyc
+node_modules/
 
 # packaging
 build/
 dist/
-*.egg-info/
-.pytest_cache/
-
-# generated: run packaging/make_icons.py to rebuild
-# (icon.png and openlux.ico ARE committed - the installers need them)
