@@ -7,15 +7,16 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
-from .ui import MainWindow, load_style
+from .ui import MainWindow
 
 
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("open-lux")
     app.setQuitOnLastWindowClosed(False)  # closing the window goes to the tray
-    app.setStyleSheet(load_style())
 
+    # The window owns the stylesheet: it knows the theme setting, and has to be
+    # able to swap it again when the OS or the user changes their mind.
     win = MainWindow(fake="--fake" in sys.argv)
     if win.cfg.start_minimized and win.tray:
         win.tray.showMessage("open-lux", "Running in the tray.")

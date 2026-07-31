@@ -20,7 +20,7 @@ sys.path.insert(0, str(ROOT))
 
 from openlux.core import CONTRAST_STEP, Calibration, N_BRIGHT, N_CONTRAST  # noqa: E402
 from openlux.hardware import DisplayInfo  # noqa: E402
-from openlux.ui import MainWindow, load_style  # noqa: E402
+from openlux.ui import MainWindow  # noqa: E402
 
 DOCS = ROOT / "docs"
 
@@ -37,7 +37,6 @@ def fake_calibration(floor, top, cal_contrast=50, min_contrast_lux=1.0):
 
 def main():
     app = QApplication(sys.argv)
-    app.setStyleSheet(load_style())
 
     win = MainWindow(fake=True)
     win.auto_enabled = False  # never drive the real monitors
@@ -59,7 +58,12 @@ def main():
     win.cfg.min_contrast = 25
     win.ambient_lux = win.raw_lux = 180.0
 
-    for page in (win.home, win.calibrate, win.extradim, win.settings):
+    # Pinned, so the README does not change with whatever theme this machine
+    # happens to be set to.
+    win.cfg.theme, win.cfg.compact = "dark", False
+    win.apply_theme()
+
+    for page in win.page_list:
         page.rebuild()
 
     win.show()

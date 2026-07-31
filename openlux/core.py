@@ -262,6 +262,12 @@ class Config:
     serial_port: str = ""
     start_minimized: bool = False
 
+    # appearance
+    theme: str = "system"  # "system" | "light" | "dark"
+    compact: bool = False
+    win_w: int = 880
+    win_h: int = 720
+
     # --- derived -----------------------------------------------------------
 
     def curve(self):

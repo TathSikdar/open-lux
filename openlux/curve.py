@@ -16,20 +16,17 @@ from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
+from . import theme
 from .core import LUX_MAX, LUX_MIN, Curve
-
-# Kept in step with style.qss by hand -- two files, one palette.
-BG = QColor("#101011")
-GRID = QColor("#232325")
-AXIS = QColor("#6b6763")
-LINE = QColor("#e8752c")  # the accent: brightness is doing the work
-EXTRA = QColor("#a97cf5")  # ExtraDim: contrast has taken over
-GHOST = QColor("#3a3a3d")  # asked for, but the panel cannot reach it
-KNOT = QColor("#ece9e4")
-NOW = QColor("#5ec98f")  # where the room is right now
 
 MARGIN_L, MARGIN_R, MARGIN_T, MARGIN_B = 46, 12, 12, 26
 GRAB_PX = 14
+
+
+def _c(name):
+    """A colour from the live palette -- read at paint time, so a theme switch
+    is nothing more than a repaint."""
+    return QColor(theme.current()[name])
 
 
 class CurveWidget(QWidget):
@@ -46,7 +43,7 @@ class CurveWidget(QWidget):
         self.extradim_from = 0.0  # below this, contrast has to take over
         self.ambient = None
         self._drag = None
-        self.setMinimumHeight(190)
+        self.setMinimumHeight(theme.current()["graph_min"])
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setMouseTracking(True)
 
@@ -99,7 +96,7 @@ class CurveWidget(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         r = self._plot()
-        p.fillRect(self.rect(), BG)
+        p.fillRect(self.rect(), _c("graph_bg"))
 
         self._grid(p, r)
         self._curve(p, r)
@@ -112,29 +109,30 @@ class CurveWidget(QWidget):
         f = QFont(self.font())
         f.setPointSizeF(max(7.0, f.pointSizeF() - 1.5))
         p.setFont(f)
+        grid, axis = _c("grid"), _c("axis")
 
         for decade in range(int(math.log10(LUX_MIN)), int(math.log10(LUX_MAX)) + 1):
             lux = 10.0**decade
             x = self._px(lux)
-            p.setPen(QPen(GRID, 1))
+            p.setPen(QPen(grid, 1))
             p.drawLine(QPointF(x, r.top()), QPointF(x, r.bottom()))
-            p.setPen(AXIS)
+            p.setPen(axis)
             label = f"{lux:g}" if lux < 1000 else f"{lux / 1000:g}k"
             p.drawText(QRectF(x - 20, r.bottom() + 4, 40, 16), Qt.AlignHCenter, label)
 
         for i in range(5):
             val = self.y_max * i / 4
             y = self._py(val)
-            p.setPen(QPen(GRID, 1))
+            p.setPen(QPen(grid, 1))
             p.drawLine(QPointF(r.left(), y), QPointF(r.right(), y))
-            p.setPen(AXIS)
+            p.setPen(axis)
             p.drawText(
                 QRectF(0, y - 8, MARGIN_L - 6, 16),
                 Qt.AlignRight | Qt.AlignVCenter,
                 f"{val:.0f}",
             )
 
-        p.setPen(AXIS)
+        p.setPen(axis)
         p.drawText(QRectF(r.left() + 6, r.top() + 2, 140, 14), Qt.AlignLeft, "target lux")
         p.drawText(
             QRectF(r.right() - 146, r.top() + 2, 140, 14), Qt.AlignRight, "ambient lux"
@@ -155,32 +153,34 @@ class CurveWidget(QWidget):
         ghost = QPainterPath(pts[0][0])
         for wanted_pt, _, _ in pts[1:]:
             ghost.lineTo(wanted_pt)
-        p.setPen(QPen(GHOST, 1, Qt.DashLine))
+        p.setPen(QPen(_c("ghost"), 1, Qt.DashLine))
         p.drawPath(ghost)
 
         # Segment by segment, so the ExtraDim stretch is simply a different pen.
+        extra, line = _c("extra"), _c("accent")
         for (_, a, _), (_, b, want) in zip(pts, pts[1:]):
-            p.setPen(QPen(EXTRA if want < self.extradim_from else LINE, 2.4))
+            p.setPen(QPen(extra if want < self.extradim_from else line, 2.4))
             p.drawLine(a, b)
 
         if self.extradim_from > 0:
             y = self._py(self.extradim_from)
-            p.setPen(QPen(EXTRA.darker(160), 1, Qt.DotLine))
+            p.setPen(QPen(extra.darker(160), 1, Qt.DotLine))
             p.drawLine(QPointF(r.left(), y), QPointF(r.right(), y))
 
     def _now(self, p, r):
         x = self._px(self.ambient)
+        now = _c("now")
         # Dimmed, or a 1px dashed line reads as plain white against the grid.
-        p.setPen(QPen(NOW.darker(160), 1, Qt.DashLine))
+        p.setPen(QPen(now.darker(160), 1, Qt.DashLine))
         p.drawLine(QPointF(x, r.top()), QPointF(x, r.bottom()))
-        p.setBrush(NOW)
+        p.setBrush(now)
         p.setPen(Qt.NoPen)
         y = self._py(max(self.curve.value_at(self.ambient), self.floor))
         p.drawEllipse(QPointF(x, y), 4, 4)
 
     def _knots(self, p):
-        p.setPen(QPen(BG, 1.5))
-        p.setBrush(KNOT)
+        p.setPen(QPen(_c("graph_bg"), 1.5))
+        p.setBrush(_c("knot"))
         for i, y in enumerate(self.curve.ys):
             p.drawEllipse(
                 QPointF(self._px(self.curve.lux_at_knot(i)), self._py(y)), 4.5, 4.5

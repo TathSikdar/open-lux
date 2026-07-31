@@ -167,6 +167,12 @@ to how bright you want the screen (vertical). Drag any point to reshape it and
 press **Save curve**. The green marker shows where the room is right now, so
 you can see which part of the curve you are actually sitting on.
 
+**Appearance** — the theme follows Windows or your desktop by default and
+switches the moment the system does; pick Light or Dark to pin it. **Compact
+layout** tightens the spacing for a short window. Every screen scrolls, so the
+window can be dragged down to about 220px tall, and whatever size you leave it
+at is the size it opens at next time.
+
 **Auto-learn** — off means the curve only changes when you drag it. On, it
 follows your manual adjustments over time. With one knob per display you can
 also choose whether it learns from each display separately (each gets its own
@@ -280,8 +286,10 @@ open-lux/
 │   ├── core.py                 lux maths, curve, calibration tables, learning
 │   ├── hardware.py             serial reader, DDC writer, calibration sweep
 │   ├── curve.py                the drag-editable graph widget
+│   ├── desk.py                 the painted Home-screen illustration
 │   ├── ui.py                   window, tray, the four screens
-│   └── style.qss               theme
+│   ├── theme.py                light/dark and roomy/compact palettes
+│   └── style.qss               the stylesheet theme.py fills in
 ├── packaging/                  PyInstaller spec, installers, icon/screenshot tools
 ├── tests/
 └── docs/

@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
+from string import Template
 
 from PySide6.QtCore import Qt, QPointF, QRectF, QSize
-from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QAction, QColor, QGuiApplication, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
+    QApplication,
     QButtonGroup,
     QCheckBox,
     QComboBox,
@@ -23,6 +25,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QRadioButton,
+    QScrollArea,
     QSizePolicy,
     QSlider,
     QSpinBox,
@@ -32,8 +35,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from . import theme
 from .core import Config, adc_to_lux, learn
 from .curve import CurveWidget
+from .desk import DeskWidget
 from .hardware import (
     CalibrationWorker,
     DisplayWriter,
@@ -92,6 +97,7 @@ def heading(text, sub=None):
         s.setWordWrap(True)
         box.addWidget(s)
     w = QWidget()
+    w.setObjectName("pane")
     w.setLayout(box)
     return w
 
@@ -104,6 +110,17 @@ def card(*widgets):
     for w in widgets:
         lay.addWidget(w) if isinstance(w, QWidget) else lay.addLayout(w)
     return frame
+
+
+def _scrolled(page):
+    """A page keeps its natural height and scrolls; the *window* is then free
+    to be dragged shorter than its contents."""
+    area = QScrollArea()
+    area.setWidget(page)
+    area.setWidgetResizable(True)
+    area.setFrameShape(QFrame.NoFrame)
+    area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+    return area
 
 
 def row(*widgets, stretch_last=False):
@@ -124,6 +141,7 @@ class HomePage(QWidget):
         self.win = win
         self.sliders = {}  # key -> (QSlider, QLabel)
 
+        self.desk = DeskWidget()
         self.lux_label = QLabel("--")
         self.lux_label.setObjectName("readout")
         self.status = QLabel("Waiting for sensor")
@@ -139,8 +157,10 @@ class HomePage(QWidget):
         lay.setContentsMargins(24, 24, 24, 24)
         lay.setSpacing(16)
         lay.addWidget(heading("Home"))
+        lay.addWidget(card(self.desk))
         lay.addWidget(card(self.lux_label, self.status))
         holder = QWidget()
+        holder.setObjectName("pane")
         holder.setLayout(self.sliders_box)
         lay.addWidget(card(holder))
         lay.addWidget(card(self.extradim))
@@ -184,6 +204,7 @@ class HomePage(QWidget):
 
     def _slider(self, key, name):
         w = QWidget()
+        w.setObjectName("pane")
         lay = QVBoxLayout(w)
         lay.setContentsMargins(0, 0, 0, 0)
         value = QLabel("--")
@@ -455,6 +476,13 @@ class SettingsPage(QWidget):
         g.addButton(self.knob_each)
         self.knob_one.toggled.connect(self._knob_changed)
 
+        self.theme = QComboBox()
+        for label, value in (("Follow system", "system"), ("Light", "light"), ("Dark", "dark")):
+            self.theme.addItem(label, value)
+        self.theme.currentIndexChanged.connect(self._appearance_changed)
+        self.compact = QCheckBox("Compact layout  -  tighter spacing for a short window")
+        self.compact.toggled.connect(self._appearance_changed)
+
         self.auto_learn = QCheckBox("Learn the brightness I pick over time")
         self.auto_learn.toggled.connect(self._learn_changed)
         self.learn_avg = QRadioButton("Learn from the average of both displays")
@@ -498,6 +526,7 @@ class SettingsPage(QWidget):
         lay.setSpacing(16)
         lay.addWidget(heading("Settings"))
         lay.addWidget(card(QLabel("Home screen"), self.knob_one, self.knob_each))
+        lay.addWidget(card(QLabel("Appearance"), row(QLabel("Theme"), self.theme), self.compact))
         lay.addWidget(card(QLabel("Learning"), self.auto_learn, self.learn_avg, self.learn_each))
         lay.addWidget(
             card(
@@ -527,6 +556,7 @@ class SettingsPage(QWidget):
             (self.learn_each, not cfg.learn_averaged),
             (self.to_vcc, cfg.ldr_to_vcc),
             (self.minimized, cfg.start_minimized),
+            (self.compact, cfg.compact),
         ):
             w.blockSignals(True)
             w.setChecked(v)
@@ -538,6 +568,10 @@ class SettingsPage(QWidget):
 
         self.learn_avg.setEnabled(cfg.auto_learn and not cfg.single_knob)
         self.learn_each.setEnabled(cfg.auto_learn and not cfg.single_knob)
+
+        self.theme.blockSignals(True)
+        self.theme.setCurrentIndex(max(0, self.theme.findData(cfg.theme)))
+        self.theme.blockSignals(False)
 
         self.port.blockSignals(True)
         self.port.clear()
@@ -609,6 +643,12 @@ class SettingsPage(QWidget):
         self.win.cfg.start_minimized = self.minimized.isChecked()
         self.win.cfg.save()
 
+    def _appearance_changed(self, _=None):
+        self.win.cfg.theme = self.theme.currentData()
+        self.win.cfg.compact = self.compact.isChecked()
+        self.win.cfg.save()
+        self.win.apply_theme()
+
 
 # --- window -----------------------------------------------------------------
 
@@ -618,9 +658,9 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("open-lux")
         self.setWindowIcon(app_icon())
-        self.resize(880, 720)
 
         self.cfg = Config.load()
+        self.resize(self.cfg.win_w, self.cfg.win_h)
         self.curve = self.cfg.curve()
         self.displays = []
         self.raw_lux = 0.0
@@ -635,9 +675,10 @@ class MainWindow(QMainWindow):
         self.calibrate = CalibratePage(self)
         self.extradim = ExtraDimPage(self)
         self.settings = SettingsPage(self)
+        self.page_list = [self.home, self.calibrate, self.extradim, self.settings]
         self.pages = QStackedWidget()
-        for p in (self.home, self.calibrate, self.extradim, self.settings):
-            self.pages.addWidget(p)
+        for p in self.page_list:
+            self.pages.addWidget(_scrolled(p))
 
         body = QWidget()
         lay = QHBoxLayout(body)
@@ -655,7 +696,28 @@ class MainWindow(QMainWindow):
         self.restart_reader()
 
         self._tray()
+        self.apply_theme()
+        # The OS switching at sunset should switch the app with it.
+        hints = QGuiApplication.styleHints()
+        if hasattr(hints, "colorSchemeChanged"):
+            hints.colorSchemeChanged.connect(lambda _: self.apply_theme())
         self.displays_changed()
+
+    def apply_theme(self):
+        """Rebuild the stylesheet and nudge the hand-painted widgets, which read
+        the palette themselves rather than being styled by QSS."""
+        dark = theme.is_dark(self.cfg.theme)
+        QApplication.instance().setStyleSheet(load_style(dark, self.cfg.compact))
+
+        t = theme.current()
+        m, s = t["margin"], t["spacing"]
+        for p in self.page_list:
+            p.layout().setContentsMargins(m, m, m, m)
+            p.layout().setSpacing(s)
+        for g in (self.settings.graph, self.extradim.graph):
+            g.setMinimumHeight(t["graph_min"])
+            g.update()
+        self.home.desk.apply_theme()
 
     # --- chrome ------------------------------------------------------------
 
@@ -688,9 +750,8 @@ class MainWindow(QMainWindow):
         for i, b in enumerate(self.nav):
             b.setChecked(i == index)
         self.pages.setCurrentIndex(index)
-        page = self.pages.widget(index)
-        if hasattr(page, "rebuild"):
-            page.rebuild()
+        # page_list, not pages.widget() -- the stack holds scroll areas now.
+        self.page_list[index].rebuild()
 
     def _tray(self):
         if not QSystemTrayIcon.isSystemTrayAvailable():
@@ -726,6 +787,8 @@ class MainWindow(QMainWindow):
         self.close()
 
     def closeEvent(self, e):
+        self.cfg.win_w, self.cfg.win_h = self.width(), self.height()
+        self.cfg.save()
         if getattr(self, "_closing", False) or not self.tray:
             for t in (self.reader, self.writer):
                 if t:
@@ -756,7 +819,7 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self.displays = []
             self._status(f"No displays: {e}")
-        for p in (self.home, self.calibrate, self.extradim, self.settings):
+        for p in self.page_list:
             p.rebuild()
 
     def reference_cal(self):
@@ -884,8 +947,16 @@ class MainWindow(QMainWindow):
         self.apply_now()
 
 
-def load_style():
+def load_style(dark=True, compact=False):
+    """The stylesheet with theme.py's tokens substituted in.
+
+    string.Template rather than str.format: QSS is all braces, and `$` appears
+    nowhere in it. A token missing from theme.py raises here rather than
+    rendering a broken sheet -- tests/test_theme.py checks for that.
+    """
+    tokens = theme.tokens(dark, compact)
     try:
-        return (Path(__file__).with_name("style.qss")).read_text(encoding="utf-8")
+        qss = (Path(__file__).with_name("style.qss")).read_text(encoding="utf-8")
     except OSError:
         return ""
+    return Template(qss).substitute(tokens)

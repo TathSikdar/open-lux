@@ -1,72 +1,103 @@
 /* open-lux theme.
  *
  * Warm near-black rather than the usual blue-tinted dark, one orange accent,
- * pill buttons, and a serif for display type against a sans body. The graph
- * widget paints itself and keeps its palette in curve.py.
+ * pill buttons, and a serif for display type against a sans body. A light
+ * palette is the same sheet with different tokens.
+ *
+ * The placeholders below are substituted from theme.py by ui.load_style().
+ * QSS already uses braces for its rule blocks, so this is string.Template,
+ * not str.format -- which also means a bare dollar sign cannot appear in this
+ * file, comments included. Every placeholder must exist in theme.py, and
+ * tests/test_theme.py fails if one does not.
  */
 
 QWidget {
-    background: #0c0c0d;
-    color: #ece9e4;
+    background: $bg;
+    color: $text;
     font-family: "Segoe UI", "Inter", "Cantarell", "DejaVu Sans", sans-serif;
-    font-size: 13px;
+    font-size: $font;
 }
 
-/* Labels must not paint their own background, or they punch dark rectangles
-   through the rounded cards -- and any label given padding starts drawing a
-   styled background it never asked for. */
-QLabel { background: transparent; }
+/* Anything that sits inside a card must not paint its own background, or it
+   punches a window-coloured rectangle through the card -- invisible against
+   the near-black dark theme, obvious as a grey band on the light one. #pane is
+   the plain QWidget used as a layout container (see heading() and _slider()).
+   Note that a label given padding starts drawing a background it never asked
+   for, so this has to stay. */
+QLabel, QCheckBox, QRadioButton, QSlider, #pane { background: transparent; }
+
+/* The pages live inside scroll areas so the window can be dragged shorter than
+   its contents; neither the area nor its viewport should paint anything. */
+QScrollArea, QScrollArea > QWidget > QWidget {
+    background: transparent;
+    border: none;
+}
+
+QScrollBar:vertical {
+    background: transparent;
+    width: 10px;
+    margin: 0;
+}
+QScrollBar::handle:vertical {
+    background: $border_hi;
+    border-radius: 5px;
+    min-height: 28px;
+}
+QScrollBar::handle:vertical:hover { background: $muted; }
+/* Qt draws step arrows and a page-gap widget unless they are zeroed out. */
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }
 
 /* ---- sidebar ---- */
 
 #sidebar {
-    background: #121213;
-    border-right: 1px solid #232325;
+    background: $sidebar;
+    border-right: 1px solid $border;
 }
 
 #brand {
     font-family: Georgia, "Iowan Old Style", "DejaVu Serif", "Liberation Serif", serif;
-    font-size: 19px;
-    color: #ece9e4;
+    font-size: $brand_size;
+    color: $text;
     padding-left: 8px;
 }
 
 QPushButton#nav {
     background: transparent;
     border: 1px solid transparent;
-    border-radius: 20px;
-    padding: 9px 16px;
+    border-radius: $radius;
+    padding: $nav_pad;
     text-align: left;
-    color: #8f8b85;
+    color: $muted;
 }
-QPushButton#nav:hover { background: #1b1b1d; color: #ece9e4; }
+QPushButton#nav:hover { background: $hover; color: $text; }
 QPushButton#nav:checked {
-    background: #1f1e1d;
-    border-color: #37332e;
-    color: #ece9e4;
+    background: $sel;
+    border-color: $sel_border;
+    color: $text;
 }
 
 /* ---- surfaces ---- */
 
 #card {
-    background: #131314;
-    border: 1px solid #232325;
-    border-radius: 16px;
+    background: $surface;
+    border: 1px solid $border;
+    border-radius: $card_radius;
 }
 
 #heading {
     font-family: Georgia, "Iowan Old Style", "DejaVu Serif", "Liberation Serif", serif;
-    font-size: 27px;
-    color: #ece9e4;
+    font-size: $heading_size;
+    color: $text;
 }
-#sub { color: #8f8b85; }
+#sub { color: $muted; }
 
 #readout {
     font-family: Georgia, "Iowan Old Style", "DejaVu Serif", "Liberation Serif", serif;
-    font-size: 34px;
-    color: #e8752c;
+    font-size: $readout_size;
+    color: $accent;
 }
-#value { font-size: 15px; font-weight: 600; color: #e8752c; }
+#value { font-size: $value_size; font-weight: 600; color: $accent; }
 
 /* ---- buttons ---- */
 
@@ -74,70 +105,70 @@ QPushButton#nav:checked {
    999px pill trick silently renders as a small radius. These are set just
    over half the button height, which Qt does clamp into a true pill. */
 QPushButton {
-    background: #1e1e20;
-    border: 1px solid #2f2f32;
-    border-radius: 20px;
-    padding: 9px 20px;
-    color: #ece9e4;
+    background: $button;
+    border: 1px solid $button_border;
+    border-radius: $radius;
+    padding: $btn_pad;
+    color: $text;
 }
-QPushButton:hover { background: #27272a; border-color: #3a3a3e; }
-QPushButton:pressed { background: #171719; }
-QPushButton:disabled { color: #56534f; background: #141416; border-color: #232325; }
+QPushButton:hover { background: $button_hover; border-color: $border_hi; }
+QPushButton:pressed { background: $button_press; }
+QPushButton:disabled { color: $faint; background: $button_off; border-color: $border; }
 
 QPushButton#primary {
-    background: #e8752c;
+    background: $accent;
     border: none;
     /* Qt's `border: none` drops the inherited radius too, unlike CSS, so it
        has to be restated here or the button comes out square. */
-    border-radius: 21px;
-    color: #16130f;
+    border-radius: $pri_radius;
+    color: $accent_fg;
     font-weight: 600;
-    padding: 11px 24px;
+    padding: $pri_pad;
 }
-QPushButton#primary:hover { background: #f58a45; }
-QPushButton#primary:pressed { background: #d1651f; }
-QPushButton#primary:disabled { background: #2a2521; color: #6b6259; }
+QPushButton#primary:hover { background: $accent_hover; }
+QPushButton#primary:pressed { background: $accent_press; }
+QPushButton#primary:disabled { background: $accent_off; color: $accent_off_fg; }
 
 /* ---- slider ---- */
 
 QSlider::groove:horizontal {
     height: 6px;
-    background: #232325;
+    background: $border;
     border-radius: 3px;
 }
-QSlider::sub-page:horizontal { background: #e8752c; border-radius: 3px; }
+QSlider::sub-page:horizontal { background: $accent; border-radius: 3px; }
 QSlider::handle:horizontal {
-    background: #ece9e4;
+    background: $handle;
     width: 16px;
     height: 16px;
     margin: -6px 0;
     border-radius: 8px;
 }
-QSlider::handle:horizontal:hover { background: #ffffff; }
+QSlider::handle:horizontal:hover { background: $handle_hover; }
 
 /* ---- choices ---- */
 
 QCheckBox, QRadioButton { spacing: 10px; padding: 3px 0; }
-QCheckBox:disabled, QRadioButton:disabled { color: #56534f; }
+QCheckBox:disabled, QRadioButton:disabled { color: $faint; }
 QCheckBox::indicator, QRadioButton::indicator { width: 16px; height: 16px; }
 
 QCheckBox::indicator {
-    border: 1px solid #3a3a3e;
+    border: 1px solid $border_hi;
     border-radius: 5px;
-    background: #191919;
+    background: $field;
 }
-QCheckBox::indicator:checked { background: #e8752c; border-color: #e8752c; }
+QCheckBox::indicator:checked { background: $accent; border-color: $accent; }
 
 QRadioButton::indicator {
-    border: 1px solid #3a3a3e;
+    border: 1px solid $border_hi;
     border-radius: 9px;
-    background: #191919;
+    background: $field;
 }
 /* border-radius must be half the *outer* box (content + border) or Qt renders
    a rounded square instead of a dot. */
 QRadioButton::indicator:checked {
-    background: #e8752c;
-    border: 4px solid #191919;
+    background: $accent;
+    border: 4px solid $field;
     border-radius: 12px;
 }
 
@@ -146,14 +177,14 @@ QRadioButton::indicator:checked {
 /* Buttons are pills; fields are rounded rectangles. A full pill fights the
    spin-box arrows, which Qt draws as a square block in the corner. */
 QComboBox, QSpinBox, QDoubleSpinBox {
-    background: #191919;
-    border: 1px solid #2f2f32;
-    border-radius: 12px;
-    padding: 7px 14px;
+    background: $field;
+    border: 1px solid $button_border;
+    border-radius: $field_radius;
+    padding: $field_pad;
     min-width: 92px;
-    color: #ece9e4;
+    color: $text;
 }
-QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover { border-color: #3a3a3e; }
+QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover { border-color: $border_hi; }
 QComboBox::drop-down { border: none; width: 20px; }
 
 /* The spin buttons are deliberately left unstyled: styling ::up-button drops
@@ -161,29 +192,29 @@ QComboBox::drop-down { border: none; width: 20px; }
    for a control that is already perfectly usable. */
 
 QComboBox QAbstractItemView {
-    background: #161617;
-    border: 1px solid #2f2f32;
+    background: $popup;
+    border: 1px solid $button_border;
     padding: 4px;
-    selection-background-color: #e8752c;
-    selection-color: #16130f;
+    selection-background-color: $accent;
+    selection-color: $accent_fg;
     outline: none;
 }
 
 QProgressBar {
-    background: #1e1e20;
+    background: $button;
     border: none;
     border-radius: 4px;
     height: 8px;
 }
-QProgressBar::chunk { background: #e8752c; border-radius: 4px; }
+QProgressBar::chunk { background: $accent; border-radius: 4px; }
 
 /* ---- tray menu ---- */
 
 QMenu {
-    background: #131314;
-    border: 1px solid #2f2f32;
+    background: $surface;
+    border: 1px solid $button_border;
     padding: 6px;
 }
 QMenu::item { padding: 8px 24px; border-radius: 8px; }
-QMenu::item:selected { background: #e8752c; color: #16130f; }
-QMenu::separator { height: 1px; background: #232325; margin: 5px 8px; }
+QMenu::item:selected { background: $accent; color: $accent_fg; }
+QMenu::separator { height: 1px; background: $border; margin: 5px 8px; }
