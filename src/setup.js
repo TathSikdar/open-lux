@@ -172,6 +172,7 @@ const handlers = {
 
   square(white) {
     $('setup-square').classList.toggle('white', white);
+    $('setup-square').classList.toggle('black', !white);
   },
 
   done({ minLux, maxLux, floor, hasContrast }) {
@@ -192,7 +193,7 @@ const handlers = {
 function stopped() {
   running = false;
   $('setup-bar').hidden = true;
-  $('setup-square').classList.remove('white');
+  $('setup-square').classList.remove('white', 'black');
   render();
 }
 

@@ -22,7 +22,7 @@ function finish() {
   $('cal-button').textContent = 'Ready to calibrate';
   $('cal-identify').disabled = false;
   $('cal-bar').hidden = true;
-  $('cal-square').classList.remove('white');
+  $('cal-square').classList.remove('white', 'black');
 }
 
 /** @type {!Object} passed to calibration.js for the runs this page starts. */
@@ -34,6 +34,7 @@ const handlers = {
 
   square(white) {
     $('cal-square').classList.toggle('white', white);
+    $('cal-square').classList.toggle('black', !white);
   },
 
   done({ minLux, maxLux, floor, hasContrast }) {

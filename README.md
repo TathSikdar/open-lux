@@ -107,6 +107,12 @@ takes about a minute each. The wizard runs it for you the first time; after that
 it lives at the bottom of Settings, for a monitor you skipped or one you have
 moved.
 
+> **Calibrate in the dark.** Turn the room lights off and close the blinds
+> first. The LDR cannot tell the screen's light from the room's, so anything
+> the room contributes is baked into the display's measured table as if the
+> panel had emitted it — and every brightness decision afterwards is made from
+> that table. A lit room is the most common cause of a bad calibration.
+
 <img src="docs/screenshot-calibrate.png" width="640" alt="The Calibrate section of Settings">
 
 1. Go to **Settings ▸ Calibrate**, at the bottom of the page, and pick the
@@ -118,21 +124,24 @@ moved.
    physically on the display you are measuring.
 3. Set the contrast you normally use (50% is a sensible default). Everything
    the app does later is measured relative to this value.
-4. Hold the LDR flat against the square, covering it, so it sees the screen and
+4. **Turn the lights off.** The dashed square is where the sensor goes; it
+   only fills with black and white once the sweep starts.
+5. Hold the LDR flat against the square, covering it, so it sees the screen and
    as little of the room as possible. Tape or a bit of Blu Tack helps — your
    hand shaking is measurement noise.
-5. Press **Ready to calibrate** and leave it alone.
+6. Press **Ready to calibrate** and leave it alone.
 
-The square stays black briefly to measure a baseline, then turns white and
+The square goes black briefly to measure a baseline, then turns white and
 cycles through the panel's whole brightness range one percent at a time, then
-through its contrast range. Keep the room's lighting steady throughout —
-turning a lamp on halfway through will bend the results.
+through its contrast range. Keep the room dark throughout — turning a lamp on
+halfway through will bend the results.
 
 When it finishes you will see the range it measured, something like
 `Calibrated: 6.6 - 184 lux`. Repeat for every monitor you want controlled.
 
 **Recalibrate if** you move a monitor somewhere with different lighting, change
-its OSD picture mode, or swap the sensor hardware.
+its OSD picture mode, swap the sensor hardware — or if you calibrated with the
+lights on.
 
 ### 3. Everyday use
 
@@ -254,8 +263,9 @@ divider"* in Settings.
   cannot either.
 
 **Calibration produced a flat or nonsensical curve**
-Usually the sensor was not flat against the screen, or the room's light changed
-mid-sweep. The other big cause is the **monitor's own dynamic contrast** — many
+Usually the room was not dark, the sensor was not flat against the screen, or
+the light changed mid-sweep — redo it with the lights off. The other big cause
+is the **monitor's own dynamic contrast** — many
 panels have an "eco", "dynamic contrast" or "smart brightness" mode that
 adjusts the backlight on its own. That fights the measurement and then fights
 open-lux. Turn it off in the monitor's menu and calibrate again.
