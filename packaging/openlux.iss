@@ -7,7 +7,11 @@
 ; Produces dist/open-lux-<version>-windows-x64-setup.exe
 
 #define AppName "open-lux"
-#define AppVersion "1.0.0"
+; Overridable so a release build can take the version from the git tag:
+;   iscc /DAppVersion=1.2.3 packaging/openlux.iss
+#ifndef AppVersion
+  #define AppVersion "1.0.0"
+#endif
 #define AppPublisher "Tath Sikdar"
 #define AppURL "https://github.com/TathSikdar/open-lux"
 #define AppExe "openlux.exe"

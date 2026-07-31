@@ -22,9 +22,17 @@ jobs:
       - run: pyinstaller --noconfirm --clean packaging/openlux.spec
 
       - name: Build installer
+        shell: bash
         run: |
           choco install innosetup --no-progress -y
-          iscc packaging/openlux.iss
+          # Take the version from the tag so the installer and its filename
+          # cannot drift from what was released. Falls back to the .iss default
+          # for a manual (workflow_dispatch) build.
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            iscc "/DAppVersion=${GITHUB_REF_NAME#v}" packaging/openlux.iss
+          else
+            iscc packaging/openlux.iss
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
