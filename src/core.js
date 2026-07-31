@@ -93,13 +93,33 @@ export function monotonic(vals) {
  * The constants are knobs, not truths: a real GL5506 strays a long way from
  * its datasheet, and the absolute scale never has to be right -- calibration
  * tables and the curve are measured in these same units.
+ *
+ * `adc` is fractional: the firmware oversamples and sends decimals, and the
+ * dark end is exactly where that matters -- a whole count near zero is most of
+ * a decade of lux.
  */
 export function adcToLux(adc, rFixed = 5100.0, r10 = 5000.0, gamma = 0.7, ldrToVcc = true) {
-  adc = clamp(Number(adc), 1.0, 1022.0); // the rails would divide by zero
+  // The rails would divide by zero. Kept well inside a count so an oversampled
+  // reading of 0.25 is still a distinct light level rather than the floor.
+  adc = clamp(Number(adc), 0.05, 1022.95);
   const ratio = (1023.0 - adc) / adc;
   let rLdr = ldrToVcc ? rFixed * ratio : rFixed / ratio;
   rLdr = Math.max(rLdr, 1e-6);
   return 10.0 ** ((Math.log10(r10) - Math.log10(rLdr)) / gamma) * 10.0;
+}
+
+/**
+ * Lux with as many decimals as the magnitude justifies.
+ *
+ * A dim room reads in fractions of a lux, and rounding those to an integer is
+ * the difference between a live number and one that looks stuck at 0.
+ */
+export function formatLux(lux) {
+  const digits = lux >= 100 ? 0 : lux >= 10 ? 1 : 2;
+  return lux.toLocaleString(undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
 }
 
 // --- response curve ---------------------------------------------------------
@@ -270,6 +290,7 @@ export const DEFAULTS = {
   calContrast: 50,
   serialPort: '',
   startMinimized: false,
+  firstRunDone: false, // cleared -> the setup wizard runs on the next launch
 
   // appearance
   theme: 'system', // "system" | "light" | "dark"

@@ -6,7 +6,8 @@
 Automatic monitor brightness driven by a real light sensor, for DDC/CI displays
 (HDMI & DisplayPort) on **Windows and Linux**.
 
-An Arduino reports the ambient light level once a second. The app **measures**
+An Arduino reports the ambient light level ten times a second, oversampled so
+the reading carries decimals rather than whole ADC counts. The app **measures**
 what each of your displays actually emits, then drives every calibrated display
 to match the room. Displays you have not calibrated are never touched.
 
@@ -96,11 +97,14 @@ it drives everything from a simulated sensor.
 ### 2. Calibrate each display
 
 This is the one step that matters, and you do it once per monitor. It takes
-about three minutes each.
+about a minute each.
 
 <img src="docs/screenshot-calibrate.png" width="640" alt="The Calibrate screen">
 
-1. Go to **Calibrate** and pick the monitor from the dropdown.
+1. Go to **Calibrate** and pick the monitor from the dropdown. The names come
+   from DDC and say nothing about where a monitor sits on your desk, so press
+   **Identify display** — that panel blinks a few times, then goes back to
+   normal.
 2. **Drag the open-lux window onto that monitor.** The white square has to be
    physically on the display you are measuring.
 3. Set the contrast you normally use (50% is a sensible default). Everything
@@ -202,9 +206,9 @@ serial devices are attached, pick the right port in Settings.
 
 **The lux number never moves**
 The LDR is probably not in the divider you think it is. Open the Arduino
-serial monitor at 9600 baud — you should see a number about once a second that
-changes when you cover the sensor. If it is pinned at 0 or 1023, the divider is
-miswired.
+serial monitor at 9600 baud — you should see a decimal number about ten times a
+second that changes when you cover the sensor. If it is pinned at 0.00 or
+1023.00, the divider is miswired.
 
 **Brighter light makes the number go down**
 Your LDR is on the other leg of the divider. Flip *"LDR on the VCC side of the
@@ -245,7 +249,7 @@ you replug them in a different order. Recalibrate, or swap the two entries in
 ## How it works
 
 ```
-Arduino --raw ADC, 1 Hz on change--> lux --> smoothing
+Arduino --oversampled ADC, 10 Hz--> lux --> smoothing
                                               |
                              response curve: ambient lux -> target luminance
                                               |
@@ -292,7 +296,10 @@ open-lux/
 │   ├── main.js         electron main: window, tray, config file, IPC
 │   ├── preload.cjs     the contextBridge surface
 │   ├── graph.js        the drag-editable curve, on canvas
-│   ├── renderer.js     the four screens
+│   ├── renderer.js     renderer shell: routing, and the two IPC messages
+│   ├── ui.js           bridge, DOM helpers and the shared curve
+│   ├── pages/          one module per screen (home, calibrate, extradim,
+│   │                   settings) - each exports build/enter/tick
 │   ├── index.html      markup, incl. the Home-screen desk illustration as SVG
 │   └── style.css       the palette, as custom properties
 ├── test/

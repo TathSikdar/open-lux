@@ -15,6 +15,16 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
+    <!-- Opening animation. The desk drawing is cloned in from the Home card at
+         load rather than repeated here; it is 60 lines of SVG and two copies
+         would drift. -->
+    <div id="splash">
+      <div id="splash-stage">
+        <div id="splash-desk"></div>
+        <div id="splash-brand"><span>open-lux</span></div>
+      </div>
+    </div>
+
     <nav id="sidebar">
       <h1 id="brand">open-lux</h1>
       <button class="nav" data-page="home" aria-current="page">Home</button>
@@ -74,7 +84,7 @@
                     fill="var(--screen)" stroke="none" />
               <!-- the panel is on: this app is about how brightly -->
               <rect x="116" y="36" width="88" height="46" rx="2"
-                    fill="var(--accent)" opacity="0.2" stroke="none" />
+                    fill="var(--accent)" opacity="0.45" stroke="none" />
               <rect x="153" y="90" width="14" height="12"
                     fill="var(--case-edge)" stroke="none" />
               <rect x="136" y="102" width="48" height="8" rx="2"
@@ -96,7 +106,10 @@
 
         <div class="card">
           <p id="readout">--</p>
-          <p id="status" class="sub">Waiting for sensor</p>
+          <p class="sub sensor">
+            <span id="sensor-dot" class="dot" aria-hidden="true"></span>
+            <span id="sensor-text" role="status">Waiting for sensor</span>
+          </p>
         </div>
 
         <div class="card" id="sliders"></div>
@@ -104,7 +117,12 @@
         <div class="card">
           <label class="check">
             <input type="checkbox" id="home-extradim" />
-            <span>ExtraDim &ndash; keep dimming with contrast below 0% brightness</span>
+            <span
+              >ExtraDim
+              <span class="hint"
+                >&ndash; keep dimming with contrast below 0% brightness</span
+              ></span
+            >
           </label>
         </div>
       </section>
@@ -125,14 +143,18 @@
             <select id="cal-display"></select>
             <label for="cal-contrast">Contrast</label>
             <input type="number" id="cal-contrast" min="0" max="100" step="1" />
+            <button id="cal-identify" type="button">Identify display</button>
           </div>
           <ol class="sub steps">
-            <li>Drag this window onto the display you want to calibrate.</li>
+            <li>
+              Drag this window onto the display you want to calibrate. Not sure
+              which one it is? Press <b>Identify</b> and it will blink.
+            </li>
             <li>Hold the LDR flat against the white square below, covering it.</li>
             <li>
               Press Ready. The display sweeps its whole range &ndash; leave it
               alone and keep the room's lighting steady until it finishes
-              (~3&nbsp;min).
+              (~1&nbsp;min).
             </li>
           </ol>
         </div>
@@ -209,6 +231,9 @@
             <input type="checkbox" id="set-compact" />
             <span>Compact layout &ndash; tighter spacing for a short window</span>
           </label>
+          <div class="row">
+            <button id="set-rerun">Run first-time setup again</button>
+          </div>
         </div>
 
         <div class="card">
@@ -262,6 +287,188 @@
         </div>
       </section>
     </main>
+
+    <!-- ---- first-run setup ----
+         A takeover rather than a page: it is the only thing on screen until it
+         is finished or skipped, so the sidebar cannot strand a new user
+         half-way through it. -->
+    <div id="setup" hidden>
+      <div id="setup-top">
+        <div id="setup-dots" aria-hidden="true"></div>
+        <button id="setup-quit">Skip setup</button>
+      </div>
+
+      <div id="setup-body">
+        <!-- welcome -->
+        <section id="step-welcome" class="step">
+          <h2>Welcome to open-lux</h2>
+          <p class="sub">
+            open-lux measures the light in your room with a small sensor you
+            build yourself, and keeps your monitors as bright as the room needs
+            &ndash; no brighter. This takes about ten minutes, once.
+          </p>
+          <div class="card">
+            <p class="group">The two things ahead</p>
+            <ol class="sub steps">
+              <li>
+                Build the sensor and plug it in. It is one resistor and one
+                light-sensitive part on an Arduino &ndash; no soldering needed
+                if you have a breadboard.
+              </li>
+              <li>
+                Calibrate each monitor. open-lux measures what your panel
+                actually emits, so it can match monitors to each other.
+              </li>
+            </ol>
+          </div>
+          <p class="sub">
+            Nothing here changes your brightness yet. open-lux never touches a
+            display it has not measured &ndash; that is deliberate, so a
+            half-finished setup can never leave a screen stuck dark.
+          </p>
+        </section>
+
+        <!-- hardware -->
+        <section id="step-hardware" class="step" hidden>
+          <h2>Build the sensor</h2>
+          <p class="sub">
+            open-lux cannot see your room without it. If you already have one
+            built, just plug it in &ndash; this step notices on its own.
+          </p>
+
+          <div class="card">
+            <p class="group">What you need</p>
+            <ul class="parts sub">
+              <li>
+                <b>An Arduino Nano</b> &ndash; an Uno, ESP8266 or ESP32 works
+                just as well. A Nano is the cheapest and easiest to hide behind
+                a monitor.
+              </li>
+              <li>
+                <b>An LDR</b> (light-dependent resistor), type GL5506. It looks
+                like a small disc with a squiggle on top and costs pennies.
+              </li>
+              <li>
+                <b>A 5.1k&ohm; resistor</b> &ndash; anything from 4.7k to 10k is
+                fine.
+              </li>
+              <li>
+                <b>A USB cable</b> that fits the Arduino, and a breadboard or
+                three jumper wires.
+              </li>
+            </ul>
+          </div>
+
+          <div class="card">
+            <p class="group">Wire it up</p>
+            <img id="setup-wiring" src="schematics.png" alt="The LDR and the resistor wired as a divider into an analog pin" />
+            <ol class="sub steps">
+              <li>Connect one leg of the LDR to <b>5V</b>.</li>
+              <li>
+                Connect the LDR's other leg to one leg of the resistor. This
+                joint is the middle of the divider.
+              </li>
+              <li>Connect the resistor's free leg to <b>GND</b>.</li>
+              <li>
+                Run a wire from that middle joint to the analog pin <b>A7</b>.
+              </li>
+            </ol>
+            <p class="sub">
+              The LDR has no polarity, so neither leg is the wrong way round.
+            </p>
+          </div>
+
+          <div class="card">
+            <p class="group">Flash the Arduino</p>
+            <ol class="sub steps">
+              <li>
+                Install the <b>Arduino IDE</b> from arduino.cc and plug the
+                board into your PC with the USB cable.
+              </li>
+              <li>Open <b>firmware/firmware.ino</b> from the open-lux download.</li>
+              <li>
+                If you used a pin other than A7, change the line
+                <b>SENSOR_PIN = A7</b> to match.
+              </li>
+              <li>
+                Pick your board and its port under <b>Tools</b>, then press
+                <b>Upload</b>.
+              </li>
+            </ol>
+            <p class="sub">
+              The firmware only reports raw light readings &ndash; everything
+              else happens on your PC, so you never have to flash it again.
+            </p>
+          </div>
+
+          <div class="card">
+            <p class="sub sensor">
+              <span id="setup-dot" class="dot" aria-hidden="true"></span>
+              <span id="setup-sensor" role="status">Waiting for the sensor&hellip;</span>
+            </p>
+            <p id="setup-lux" class="sub"></p>
+          </div>
+        </section>
+
+        <!-- calibrate -->
+        <section id="step-calibrate" class="step" hidden>
+          <h2 id="setup-cal-title">Calibrate your display</h2>
+          <p class="sub">
+            open-lux is about to sweep this monitor through its whole range and
+            measure the light coming off it. It takes about a minute.
+          </p>
+
+          <div class="card">
+            <ol class="sub steps">
+              <li id="setup-cal-drag">
+                Drag the open-lux window onto <b id="setup-cal-name">this display</b>.
+                Not sure which monitor that is? Press <b>Identify</b> below and
+                it will blink.
+              </li>
+              <li>Hold the LDR flat against the black square below, preferably in a dark environment.</li>
+              <li>
+                Press Calibrate, then leave everything alone &ndash; don't move
+                the sensor and don't change the room's lighting until it
+                finishes.
+              </li>
+            </ol>
+          </div>
+
+          <div id="setup-square" aria-hidden="true"></div>
+          <progress id="setup-bar" max="100" value="0" hidden></progress>
+          <p id="setup-cal-status" class="sub"></p>
+        </section>
+
+        <!-- done -->
+        <section id="step-done" class="step" hidden>
+          <h2>All set</h2>
+          <p id="setup-summary" class="sub"></p>
+          <div class="card">
+            <p class="group">From here</p>
+            <ul class="parts sub">
+              <li>
+                <b>Home</b> shows the room's light level and a slider. Nudge it
+                whenever a room looks wrong &ndash; open-lux learns from it.
+              </li>
+              <li>
+                <b>Calibrate</b> is where you measure any monitor you skipped,
+                or re-measure one you have moved.
+              </li>
+              <li>
+                <b>Settings</b> has the response curve, the theme, and the
+                sensor's constants if you built yours with different parts.
+              </li>
+            </ul>
+          </div>
+        </section>
+      </div>
+
+      <div id="setup-actions">
+        <button id="setup-identify" type="button" hidden>Identify</button>
+        <button id="setup-skip">Skip this step</button>
+        <button id="setup-next" class="primary">Next</button>
+      </div>
+    </div>
 
     <script type="module" src="renderer.js"></script>
   </body>

@@ -26,6 +26,7 @@ import {
   SerialReader,
   availablePorts,
   enumerateDisplays,
+  identifyDisplay,
   openDisplay,
 } from './hardware.js';
 
@@ -40,9 +41,17 @@ let reader = null;
 let writer = null;
 let ctl = null;
 let calRun = null;
+let identifying = false;
 let cfg = null;
 let quitting = false;
 let status = 'Waiting for sensor';
+
+/**
+ * What the Home screen's connection indicator is drawn from. `at` is the last
+ * reading's timestamp, because an open port that has gone quiet is a different
+ * fault from a port that will not open, and the user needs to tell them apart.
+ */
+const sensor = { connected: false, port: '', at: 0 };
 
 // --- config -----------------------------------------------------------------
 
@@ -110,6 +119,11 @@ function pushTick() {
     ambientLux: ctl?.ambientLux ?? null,
     levels: ctl?.lastLevels ?? {},
     status,
+    sensor: {
+      connected: sensor.connected,
+      port: sensor.port,
+      ageMs: sensor.at ? Date.now() - sensor.at : null,
+    },
   });
 }
 
@@ -123,8 +137,17 @@ function setStatus(text) {
 function restartReader() {
   reader?.stop();
   reader = FAKE ? new FakeReader() : new SerialReader(cfg.serialPort);
+  sensor.connected = false;
+  sensor.at = 0;
   reader.on('status', setStatus);
+  reader.on('connected', (port) => {
+    sensor.connected = !!port;
+    sensor.port = port ?? '';
+    if (!port) sensor.at = 0;
+    pushTick();
+  });
   reader.on('reading', (adc) => {
+    sensor.at = Date.now();
     ctl.onReading(adc);
     pushTick();
   });
@@ -266,6 +289,28 @@ function registerIpc() {
   ipcMain.handle('displays:refresh', () => refreshDisplays());
   ipcMain.handle('ports:list', () => availablePorts().catch(() => []));
 
+  // Blinking a panel is the only way to say which physical monitor a DDC entry
+  // is; see identifyDisplay(). It drives the panel behind the writer's back, so
+  // it takes the same hands-off flag and cache reset the sweep does.
+  ipcMain.handle('identify:start', async (_e, index) => {
+    if (calRun || identifying) return;
+    const info = ctl.displays.find((d) => d.index === index);
+    if (!info) return;
+
+    identifying = true;
+    ctl.calibrating = true;
+    try {
+      await identifyDisplay(openDisplay(info));
+    } catch (e) {
+      setStatus(`${info.name}: ${e.message}`);
+    } finally {
+      identifying = false;
+      ctl.calibrating = false;
+      writer.forget(info.key);
+      ctl.applyNow();
+    }
+  });
+
   ipcMain.handle('manual:preview', (_e, { key, pct }) => ctl.manualPreview(key, pct));
   ipcMain.handle('manual:commit', (_e, { key, pct }) => {
     ctl.manualCommit(key, pct);
@@ -273,7 +318,7 @@ function registerIpc() {
   });
 
   ipcMain.handle('calibrate:start', async (_e, { index, contrast }) => {
-    if (calRun) return;
+    if (calRun || identifying) return;
     const info = ctl.displays.find((d) => d.index === index);
     if (!info) return;
 
@@ -334,6 +379,10 @@ if (!app.requestSingleInstanceLock()) {
     createTray();
     await refreshDisplays();
     restartReader();
+
+    // A sensor that stops reporting sends nothing, so the indicator has to be
+    // driven by a clock rather than by the data it is waiting for.
+    setInterval(pushTick, 1000).unref?.();
 
     // The OS switching at sunset should switch the app with it. CSS already
     // reacts on its own; this is only here to repaint the window chrome.

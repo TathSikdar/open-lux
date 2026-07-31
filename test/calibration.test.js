@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { N_CONTRAST, calibrationOf, withDefaults } from '../src/core.js';
-import { CalibrationRun } from '../src/hardware.js';
+import { CalibrationRun, identifyDisplay } from '../src/hardware.js';
 import { Controller } from '../src/controller.js';
 
 const ROOM = 40.0; // ambient light reaching the sensor around the LDR
@@ -122,6 +122,25 @@ test('a cancelled sweep restores the display and rejects', async () => {
   await assert.rejects(promise, /Cancelled|/);
   assert.ok(panel.b === 75 && panel.c === 75, 'a cancelled sweep must still put it back');
   assert.equal(panel.white, false, 'and must not leave a white square on screen');
+});
+
+test('identify blinks the panel and puts the brightness back', async () => {
+  const panel = new Panel();
+  const handle = panel.handle();
+  const seen = [];
+  const spy = {
+    ...handle,
+    setLuminance: async (v) => {
+      seen.push(v);
+      return handle.setLuminance(v);
+    },
+  };
+
+  await identifyDisplay(spy, 2, 1);
+
+  // A blink that does not swing the whole range is invisible on a dim panel.
+  assert.deepEqual(seen, [0, 100, 0, 100, 75]);
+  assert.equal(panel.b, 75, 'identify must leave the display where it found it');
 });
 
 // --- the control loop -------------------------------------------------------

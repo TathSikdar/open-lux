@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('openlux', {
   resetCurve: () => ipcRenderer.invoke('curve:reset'),
   refreshDisplays: () => ipcRenderer.invoke('displays:refresh'),
   listPorts: () => ipcRenderer.invoke('ports:list'),
+  identifyDisplay: (index) => ipcRenderer.invoke('identify:start', index),
   previewManual: (key, pct) => ipcRenderer.invoke('manual:preview', { key, pct }),
   commitManual: (key, pct) => ipcRenderer.invoke('manual:commit', { key, pct }),
   startCalibration: (index, contrast) =>

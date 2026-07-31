@@ -38,16 +38,6 @@ export class Controller {
     this.override = new Map(); // key -> { pct, atLux }
   }
 
-  /** The calibration the graphs are drawn against -- first calibrated display;
-   *  they mostly differ by scale, not shape. */
-  referenceCal() {
-    for (const d of this.displays) {
-      const cal = calibrationOf(this.cfg, d.key);
-      if (cal) return cal;
-    }
-    return null;
-  }
-
   // --- the loop ------------------------------------------------------------
 
   onReading(adc) {
@@ -141,11 +131,5 @@ export class Controller {
   targets(key) {
     if (key === 'all') return this.displays.filter((d) => calibrationOf(this.cfg, d.key));
     return this.displays.filter((d) => d.key === key);
-  }
-
-  setExtradim(on) {
-    this.cfg.extradim = on;
-    this.onSave();
-    return this.applyNow();
   }
 }

@@ -59,7 +59,10 @@ export async function guessPort() {
  * Streams raw ADC readings. Reconnects forever instead of dying on the first
  * bad line, which is how the old script lost a working port.
  *
- * Emits: 'reading' (int), 'status' (string).
+ * Emits:
+ *   'reading'   (number)          fractional ADC counts, see firmware.ino
+ *   'status'    (string)          human-readable, for the status line
+ *   'connected' (?string)         the port on open, null on close/failure
  */
 export class SerialReader extends EventEmitter {
   constructor(portOverride = '', baud = 9600) {
@@ -75,6 +78,7 @@ export class SerialReader extends EventEmitter {
     while (this.running) {
       const path = this.portOverride || (await guessPort().catch(() => null));
       if (!path) {
+        this.emit('connected', null);
         this.emit('status', 'No serial ports found');
         await this._nap(backoff);
         backoff = Math.min(backoff * 2, 10000);
@@ -84,6 +88,7 @@ export class SerialReader extends EventEmitter {
         await this._session(path);
         backoff = 1000;
       } catch (e) {
+        this.emit('connected', null);
         this.emit('status', `${path}: ${e.message}`);
         await this._nap(backoff);
         backoff = Math.min(backoff * 2, 10000);
@@ -98,12 +103,14 @@ export class SerialReader extends EventEmitter {
     return new Promise((resolve, reject) => {
       const port = new SerialPort({ path, baudRate: this.baud }, (err) => {
         if (err) return reject(err);
+        this.emit('connected', path);
         this.emit('status', `Connected to ${path}`);
       });
       this.port = port;
 
       port.pipe(new ReadlineParser({ delimiter: '\n' })).on('data', (line) => {
-        const n = Number.parseInt(line.trim(), 10);
+        // parseFloat, not parseInt: the firmware oversamples and sends decimals.
+        const n = Number.parseFloat(line.trim());
         if (Number.isFinite(n)) this.emit('reading', n);
         // else: boot noise / partial line, keep the port
       });
@@ -111,6 +118,7 @@ export class SerialReader extends EventEmitter {
       port.on('error', reject);
       port.on('close', () => {
         this.port = null;
+        this.emit('connected', null);
         resolve();
       });
     });
@@ -138,24 +146,23 @@ export class FakeReader extends EventEmitter {
   }
 
   async start() {
+    this.emit('connected', 'a simulated port');
     this.emit('status', 'Simulated sensor (--fake)');
     let t = 0.0;
     while (this.running) {
-      this.emit('reading', Math.round(512 + 480 * Math.sin(t)));
-      t += 0.05;
-      await sleep(250);
+      this.emit('reading', 511.5 + 480 * Math.sin(t));
+      t += 0.02;
+      await sleep(100);
     }
   }
 
   stop() {
     this.running = false;
+    this.emit('connected', null);
   }
 }
 
 // --- displays ---------------------------------------------------------------
-
-const VCP_LUMINANCE = 0x10;
-const VCP_CONTRAST = 0x12;
 
 function ddcci() {
   return require('@hensm/ddcci');
@@ -197,10 +204,10 @@ export function openDisplay(info) {
   if (process.platform === 'win32') {
     const d = ddcci();
     return {
-      getLuminance: async () => d.getVCP(info.id, VCP_LUMINANCE)[0],
-      setLuminance: async (v) => d.setVCP(info.id, VCP_LUMINANCE, Math.round(v)),
-      getContrast: async () => d.getVCP(info.id, VCP_CONTRAST)[0],
-      setContrast: async (v) => d.setVCP(info.id, VCP_CONTRAST, Math.round(v)),
+      getLuminance: async () => d.getBrightness(info.id),
+      setLuminance: async (v) => d.setBrightness(info.id, Math.round(v)),
+      getContrast: async () => d.getContrast(info.id),
+      setContrast: async (v) => d.setContrast(info.id, Math.round(v)),
     };
   }
 
@@ -217,6 +224,30 @@ export function openDisplay(info) {
     getContrast: () => get('12'),
     setContrast: (v) => set('12', v),
   };
+}
+
+/**
+ * Blinks one panel's backlight so the user can see which physical monitor a DDC
+ * entry is. A DDC device path cannot be mapped to an OS display -- ddcci gives
+ * no geometry and electron's screen gives no device path -- so the panel itself
+ * has to answer the question.
+ *
+ * `display` is an openDisplay() handle. Full 0-100 swing: a blink around the
+ * current value is invisible on an already-dim panel, and being missed is the
+ * one way this fails.
+ */
+export async function identifyDisplay(display, times = 3, ms = 300) {
+  const orig = await display.getLuminance();
+  try {
+    for (let i = 0; i < times; i++) {
+      await display.setLuminance(0);
+      await sleep(ms);
+      await display.setLuminance(100);
+      await sleep(ms);
+    }
+  } finally {
+    await display.setLuminance(orig).catch(() => {});
+  }
 }
 
 /**

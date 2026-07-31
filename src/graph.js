@@ -21,6 +21,17 @@ const MARGIN_T = 12;
 const MARGIN_B = 26;
 const GRAB_PX = 14;
 
+/**
+ * Enough decimals to tell one gridline from the next. The axis spans anything
+ * from 2 lux (ExtraDim, zoomed) to 300 (the full response curve).
+ * @param {number} val
+ * @param {number} span the axis maximum
+ * @return {string}
+ */
+function axisLabel(val, span) {
+  return val.toFixed(span >= 100 ? 0 : span >= 10 ? 1 : 2);
+}
+
 export class CurveGraph {
   /** @param {HTMLCanvasElement} canvas */
   constructor(canvas, curve, { editable = false, onChange = () => {} } = {}) {
@@ -52,7 +63,9 @@ export class CurveGraph {
   setLimits(extradimFrom, floor, yMax = null) {
     this.extradimFrom = extradimFrom;
     this.floor = floor;
-    if (yMax) this.yMax = Math.max(50.0, yMax);
+    // No lower bound on the scale: the ExtraDim preview zooms to a handful of
+    // lux, and clamping the axis to 50 flattened that whole page into one line.
+    if (yMax > 0) this.yMax = yMax;
     this.draw();
   }
 
@@ -155,7 +168,7 @@ export class CurveGraph {
       g.fillStyle = axis;
       g.textAlign = 'right';
       g.textBaseline = 'middle';
-      g.fillText(val.toFixed(0), MARGIN_L - 6, y);
+      g.fillText(axisLabel(val, this.yMax), MARGIN_L - 6, y);
     }
 
     g.fillStyle = axis;

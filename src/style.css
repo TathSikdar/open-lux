@@ -54,11 +54,17 @@
   --extra-dim: #6a4d9a; /* the same line, dimmed for the dotted marker */
   --now: #5ec98f; /* where the room is right now */
   --now-dim: #3b7d59;
-  --desk: #2b2521;
-  --desk-edge: #1c1815;
-  --case: #1b1b1d;
-  --case-edge: #37332e;
-  --screen: #0a0a0b;
+  --bad: #e0574f;
+  --warn: #e0a23c;
+
+  /* Illustration only. These deliberately run lighter than the widget palette:
+     the desk sits on --surface, and at the surrounding chrome's contrast the
+     whole drawing disappears into the card. */
+  --desk: #4a3b2e;
+  --desk-edge: #715a44;
+  --case: #2e2e33;
+  --case-edge: #7d766c;
+  --screen: #08080a;
 
   /* metrics -- the roomy set; body.compact overrides them below */
   --font: 13px;
@@ -121,10 +127,13 @@
     --extra-dim: #a98ede;
     --now: #2f9e63;
     --now-dim: #79bf9b;
-    --desk: #e3d8c8;
-    --desk-edge: #c9bba7;
-    --case: #f0ece5;
-    --case-edge: #c4bcb0;
+    --bad: #c0392b;
+    --warn: #a06a08;
+
+    --desk: #cbb392;
+    --desk-edge: #8a7154;
+    --case: #e9e3d9;
+    --case-edge: #7d756c;
     --screen: #2a2622;
   }
 }
@@ -168,6 +177,80 @@ body {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* ---- opening animation ---- */
+
+/* The desk settles in, then the wordmark slides down out from behind it.
+   The trick is the clip, not a z-index: the drawing is mostly transparent, so
+   text merely stacked underneath it would show through the gaps. #splash-brand
+   is a window butted up against the desk's bottom edge with the wordmark
+   sliding down into it from above. */
+
+#splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  animation: splash-out 400ms ease 1500ms forwards;
+}
+
+#splash-stage {
+  position: relative;
+  width: min(420px, 70vw);
+}
+
+#splash-desk {
+  position: relative;
+  z-index: 1;
+  animation: desk-in 550ms ease-out both;
+}
+
+#splash-brand {
+  overflow: hidden;
+  margin-top: -8px; /* close the gap under the drawing's floor line */
+  text-align: center;
+}
+
+#splash-brand span {
+  display: block;
+  padding-top: 0.12em; /* room for the descender in "open-lux" */
+  font-family: var(--serif);
+  font-size: clamp(24px, 9vw, 44px);
+  animation: brand-drop 650ms cubic-bezier(0.2, 0.8, 0.3, 1) 500ms both;
+}
+
+@keyframes desk-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+}
+
+@keyframes brand-drop {
+  from {
+    transform: translateY(-110%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes splash-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+/* renderer.js checks the same query and tears the splash down itself, since
+   with no animation there is no animationend to wait for. */
+@media (prefers-reduced-motion: reduce) {
+  #splash {
+    display: none;
+  }
 }
 
 /* ---- sidebar ---- */
@@ -228,6 +311,12 @@ main {
   min-height: 100%;
 }
 
+/* `display` here beats the UA sheet's [hidden] { display: none }, so without
+   this every page renders at once and the sidebar looks broken. */
+.page[hidden] {
+  display: none;
+}
+
 .page > header h2 {
   margin: 0;
   font-family: var(--serif);
@@ -272,8 +361,42 @@ main {
   flex: 1;
 }
 
-.unit {
+.unit,
+.hint {
   color: var(--muted);
+}
+
+.push {
+  margin-left: auto;
+}
+
+.wide {
+  width: 100%;
+}
+
+/* ---- sensor indicator ---- */
+
+.sensor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+.dot.ok {
+  background: var(--now);
+}
+.dot.warn {
+  background: var(--warn);
+}
+.dot.bad {
+  background: var(--bad);
 }
 
 #readout {
@@ -401,6 +524,15 @@ input[type="range"] {
   height: 16px;
   cursor: pointer;
 }
+input[type="range"]:disabled {
+  accent-color: var(--faint);
+  cursor: default;
+}
+/* A disabled slider takes its label and its readout down with it. */
+.row:has(input:disabled) label,
+.row:has(input:disabled) .value {
+  color: var(--faint);
+}
 
 progress {
   appearance: none;
@@ -419,19 +551,130 @@ progress::-webkit-progress-value {
   border-radius: 4px;
 }
 
+/* ---- first-run setup ---- */
+
+/* A takeover, not a page: it sits over the sidebar too, so there is no way to
+   navigate out of a half-finished setup by accident. */
+#setup {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+#setup[hidden] {
+  display: none;
+}
+
+#setup-top,
+#setup-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px var(--margin);
+  background: var(--sidebar);
+}
+#setup-top {
+  border-bottom: 1px solid var(--border);
+}
+#setup-actions {
+  justify-content: flex-end;
+  border-top: 1px solid var(--border);
+}
+
+/* Identify acts on the display being calibrated, not on the wizard, so it sits
+   apart from the two navigation buttons rather than in the row with them. */
+#setup-identify {
+  margin-right: auto;
+}
+
+/* Only the middle scrolls, so the buttons survive the 220px minimum height. */
+#setup-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--margin);
+}
+
+#setup-body::-webkit-scrollbar {
+  width: 10px;
+}
+#setup-body::-webkit-scrollbar-thumb {
+  background: var(--border-hi);
+  border-radius: 5px;
+}
+
+#setup-dots {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-right: auto;
+}
+.pip {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-hi);
+}
+.pip.on {
+  background: var(--accent);
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing);
+  max-width: 620px;
+  margin: 0 auto;
+}
+.step[hidden] {
+  display: none;
+}
+
+.step h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: var(--heading-size);
+  font-weight: normal;
+}
+
+.parts {
+  margin: 0;
+  padding-left: 1.2em;
+}
+.parts li {
+  margin: 6px 0;
+}
+
+#setup-wiring {
+  width: 100%;
+  max-width: 420px;
+  align-self: center;
+  border-radius: 8px;
+  /* The schematic is drawn as black lines on white, so it cannot invert with
+     the theme -- give it its own paper instead of letting it vanish. */
+  background: #fff;
+  padding: 8px;
+}
+
 /* ---- calibration square ---- */
 
 /* Black and white are the measurement, not decoration: they must be the real
    thing in both themes, never a themed near-black. */
-#cal-square {
+#cal-square,
+#setup-square {
   align-self: center;
   width: 260px;
   height: 260px;
   border-radius: 6px;
   background: #000;
 }
-#cal-square.white {
+#cal-square.white,
+#setup-square.white {
   background: #fff;
+}
+#setup-square[hidden] {
+  display: none;
 }
 
 /* ---- scrollbar ---- */

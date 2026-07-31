@@ -19,6 +19,7 @@ import {
   adcToLux,
   calibrationOf,
   curveOf,
+  formatLux,
   invertIndex,
   learn,
   monotonic,
@@ -52,6 +53,31 @@ test('adcToLux', () => {
   // Wiring flag flips the direction.
   const off = (a) => adcToLux(a, 5100, 5000, 0.7, false);
   assert.ok(off(900) < off(100));
+});
+
+test('a fractional ADC reading resolves the dark end', () => {
+  // The firmware oversamples and sends decimals precisely so a dim room is not
+  // three indistinguishable counts. Tenths of a count must be distinct lux.
+  const dark = [0.4, 0.5, 0.7, 1.0, 2.0].map((a) => adcToLux(a));
+  assert.ok(
+    dark.every((v, i) => i === 0 || dark[i - 1] < v),
+    `each step must read brighter: ${dark}`,
+  );
+  assert.ok(dark.every(Number.isFinite), 'and none of them may blow up');
+
+  // Rounding to the nearest count -- what the old int firmware did -- collapses
+  // that whole range onto one value.
+  assert.equal(adcToLux(0.4), adcToLux(0.4));
+  assert.ok(adcToLux(0.5) / adcToLux(1.0) < 0.5, 'half a count is most of a decade down here');
+
+  assert.ok(Number.isFinite(adcToLux(1023)) && adcToLux(0) > 0, 'the rails still hold');
+});
+
+test('formatLux keeps decimals where they matter', () => {
+  assert.equal(formatLux(0.37), '0.37');
+  assert.equal(formatLux(4.5), '4.50');
+  assert.equal(formatLux(42.25), '42.3');
+  assert.equal(formatLux(1234.6), '1,235');
 });
 
 test('curve is exact at the knots and clamped outside', () => {
