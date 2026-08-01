@@ -71,4 +71,11 @@ jobs:
           files: |
             *.exe
             *.AppImage
+          # The generated PR list is appended below this.
+          body: |
+            **Windows** — run the `-windows-x64-setup.exe` installer. Per-user,
+            no administrator prompt.
+
+            **Linux** — `chmod +x` the `-linux-x86_64.AppImage` and run it.
+            Needs `ddcutil` and access to `/dev/i2c-*`.
           generate_release_notes: true
