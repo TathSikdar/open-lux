@@ -24,9 +24,6 @@ Automatic brightness from a real light sensor, for DDC/CI displays
 
 ---
 
-Most desktop tools guess. They read a webcam, or a clock, or nothing at all,
-and then apply a curve someone else picked for a panel you do not own.
-
 open-lux **measures**. An Arduino reports the ambient level ten times a second,
 oversampled so the reading carries decimals rather than whole ADC counts. Then,
 once per monitor, the app sweeps the panel through its entire range with the
@@ -87,11 +84,12 @@ for the board.
 installs per-user, so there is no administrator prompt, and it offers to start
 open-lux when you sign in.
 
-**Linux** — download `open-lux-x.y.z.AppImage`, make it executable and run it:
+**Linux** — download `open-lux-x.y.z-linux-x86_64.AppImage`, make it executable
+and run it:
 
 ```sh
-chmod +x open-lux-*.AppImage
-./open-lux-*.AppImage
+chmod +x open-lux-*-linux-x86_64.AppImage
+./open-lux-*-linux-x86_64.AppImage
 ```
 
 DDC/CI on Linux goes through `ddcutil`, so install it and make sure your user
